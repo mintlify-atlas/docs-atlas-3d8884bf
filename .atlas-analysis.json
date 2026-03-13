@@ -1,0 +1,132 @@
+{
+  "projectType": "api-service",
+  "projectName": "Task Pro API",
+  "projectDescription": "A RESTful API for task management with folders, tags, subtasks, and user authentication built with Spring Boot and Kotlin",
+  "theme": "aspen",
+  "primaryColor": "#4F46E5",
+  "lightColor": "#818CF8",
+  "darkColor": "#3730A3",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/tasks",
+              "concepts/folders",
+              "concepts/tags",
+              "concepts/subtasks"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/environment-variables",
+              "deployment/database-setup",
+              "deployment/docker",
+              "deployment/production"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Authentication",
+            "pages": [
+              "api-reference/auth/register",
+              "api-reference/auth/login",
+              "api-reference/auth/me"
+            ]
+          },
+          {
+            "group": "Tasks",
+            "pages": [
+              "api-reference/tasks/create",
+              "api-reference/tasks/list",
+              "api-reference/tasks/get",
+              "api-reference/tasks/update",
+              "api-reference/tasks/delete"
+            ]
+          },
+          {
+            "group": "Folders",
+            "pages": [
+              "api-reference/folders/create",
+              "api-reference/folders/list",
+              "api-reference/folders/get",
+              "api-reference/folders/update",
+              "api-reference/folders/delete"
+            ]
+          },
+          {
+            "group": "Tags",
+            "pages": [
+              "api-reference/tags/create",
+              "api-reference/tags/list",
+              "api-reference/tags/get",
+              "api-reference/tags/update",
+              "api-reference/tags/delete"
+            ]
+          },
+          {
+            "group": "Subtasks",
+            "pages": [
+              "api-reference/subtasks/create",
+              "api-reference/subtasks/list",
+              "api-reference/subtasks/update",
+              "api-reference/subtasks/delete"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "JWT-based authentication and authorization",
+    "Hierarchical task organization with folders and subtasks",
+    "Flexible tagging system for tasks and folders",
+    "Task status tracking (pending, in progress, completed, cancelled)",
+    "Priority levels and due date management",
+    "Archive functionality for tasks and folders",
+    "PostgreSQL database with JPA/Hibernate",
+    "CORS configuration for frontend integration",
+    "Docker support with multi-stage builds"
+  ],
+  "publicApiSurface": [
+    "POST /api/auth/register",
+    "POST /api/auth/login",
+    "GET /api/auth/me",
+    "POST /api/tasks",
+    "GET /api/tasks",
+    "GET /api/tasks/{taskId}",
+    "PUT /api/tasks/{taskId}",
+    "DELETE /api/tasks/{taskId}",
+    "POST /api/folders",
+    "GET /api/folders",
+    "GET /api/folders/{folderId}",
+    "PUT /api/folders/{folderId}",
+    "DELETE /api/folders/{folderId}",
+    "POST /api/tags",
+    "GET /api/tags",
+    "GET /api/tags/{tagId}",
+    "PUT /api/tags/{tagId}",
+    "DELETE /api/tags/{tagId}",
+    "POST /api/subtasks",
+    "GET /api/tasks/{taskId}/subtasks",
+    "PUT /api/subtasks/{subtaskId}",
+    "DELETE /api/subtasks/{subtaskId}",
+    "GET /actuator/health"
+  ]
+}
