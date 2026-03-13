@@ -1,0 +1,70 @@
+---
+title: 'Update Tag'
+api: 'PUT /api/tags/{tagId}'
+---
+
+Update an existing tag's properties.
+
+## Request
+
+<ParamField path="tagId" type="number" required>
+  The unique identifier of the tag to update
+</ParamField>
+
+<ParamField body="tagName" type="string">
+  The new name for the tag (max 100 characters)
+</ParamField>
+
+<ParamField body="color" type="string">
+  The new color code for the tag in hex format (e.g., "#FF5733"). Max 7 characters.
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X PUT https://api.taskpro.com/api/tags/123 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tagName": "Critical",
+    "color": "#FF0000"
+  }'
+```
+
+## Response
+
+<ResponseField name="tagId" type="number">
+  The unique identifier of the tag
+</ResponseField>
+
+<ResponseField name="tagName" type="string">
+  The updated name of the tag
+</ResponseField>
+
+<ResponseField name="color" type="string" optional>
+  The updated color code for the tag
+</ResponseField>
+
+### Example Response
+
+<ResponseExample>
+```json 200 OK
+{
+  "tagId": 123,
+  "tagName": "Critical",
+  "color": "#FF0000"
+}
+```
+
+```json 404 Not Found
+{
+  "detail": "Tag not found"
+}
+```
+
+```json 401 Unauthorized
+{
+  "detail": "Authentication required"
+}
+```
+</ResponseExample>

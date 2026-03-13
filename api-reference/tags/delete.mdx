@@ -1,0 +1,43 @@
+---
+title: 'Delete Tag'
+api: 'DELETE /api/tags/{tagId}'
+---
+
+Delete a tag permanently.
+
+## Request
+
+<ParamField path="tagId" type="number" required>
+  The unique identifier of the tag to delete
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X DELETE https://api.taskpro.com/api/tags/123 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## Response
+
+Returns no content on successful deletion.
+
+### Example Response
+
+<ResponseExample>
+```json 204 No Content
+// No response body
+```
+
+```json 404 Not Found
+{
+  "detail": "Tag not found"
+}
+```
+
+```json 401 Unauthorized
+{
+  "detail": "Authentication required"
+}
+```
+</ResponseExample>

@@ -1,0 +1,60 @@
+---
+title: 'Create Tag'
+api: 'POST /api/tags'
+---
+
+Create a new tag for organizing tasks, subtasks, and folders.
+
+## Request
+
+<ParamField body="tagName" type="string" required>
+  The name of the tag (max 100 characters)
+</ParamField>
+
+<ParamField body="color" type="string">
+  The color code for the tag in hex format (e.g., "#FF5733"). Max 7 characters.
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST https://api.taskpro.com/api/tags \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tagName": "Urgent",
+    "color": "#FF0000"
+  }'
+```
+
+## Response
+
+<ResponseField name="tagId" type="number">
+  The unique identifier of the created tag
+</ResponseField>
+
+<ResponseField name="tagName" type="string">
+  The name of the tag
+</ResponseField>
+
+<ResponseField name="color" type="string" optional>
+  The color code for the tag
+</ResponseField>
+
+### Example Response
+
+<ResponseExample>
+```json 201 Created
+{
+  "tagId": 123,
+  "tagName": "Urgent",
+  "color": "#FF0000"
+}
+```
+
+```json 401 Unauthorized
+{
+  "detail": "Authentication required"
+}
+```
+</ResponseExample>

@@ -1,0 +1,79 @@
+---
+title: "Delete Subtask"
+api: "DELETE /api/subtasks/{subtaskId}"
+description: "Delete a subtask"
+---
+
+## Request
+
+Permanently deletes a subtask. This action cannot be undone.
+
+### Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication
+</ParamField>
+
+### Path Parameters
+
+<ParamField path="subtaskId" type="long" required>
+  ID of the subtask to delete
+</ParamField>
+
+## Response
+
+Returns a 204 No Content status on successful deletion.
+
+<RequestExample>
+
+```bash cURL
+curl -X DELETE https://api.taskpro.com/api/subtasks/456 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.taskpro.com/api/subtasks/456', {
+  method: 'DELETE',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+
+// 204 No Content - no response body
+```
+
+```python Python
+import requests
+
+response = requests.delete(
+    'https://api.taskpro.com/api/subtasks/456',
+    headers={
+        'Authorization': 'Bearer YOUR_TOKEN'
+    }
+)
+
+# 204 No Content - no response body
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 204 No Content
+// No response body
+```
+
+```json 401 Unauthorized
+{
+  "error": "Unauthorized",
+  "message": "Invalid or missing authentication token"
+}
+```
+
+```json 404 Not Found
+{
+  "detail": "Subtask not found"
+}
+```
+
+</ResponseExample>

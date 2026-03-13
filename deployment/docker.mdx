@@ -1,0 +1,568 @@
+---
+title: 'Docker Deployment'
+description: 'Deploy Task Pro API using Docker and Docker Compose'
+---
+
+## Overview
+
+Task Pro API includes a production-ready Dockerfile that uses multi-stage builds to create an optimized container image. This guide covers building, running, and deploying the API with Docker.
+
+## Dockerfile Overview
+
+The project includes a `Dockerfile` with a two-stage build:
+
+```dockerfile
+### Build stage
+FROM gradle:9.3.1-jdk17 AS build
+WORKDIR /home/gradle/project
+COPY --chown=gradle:gradle . /home/gradle/project
+RUN chmod +x ./gradlew && ./gradlew bootJar --no-daemon --warning-mode=all
+
+### Run stage
+FROM eclipse-temurin:17-jre-jammy
+WORKDIR /app
+COPY --from=build /home/gradle/project/build/libs/task-pro-api-0.0.1-SNAPSHOT.jar app.jar
+
+ENV JAVA_TOOL_OPTIONS="-Xms256m -Xmx512m"
+EXPOSE 8080
+ENTRYPOINTRY ["java","-jar","/app/app.jar"]
+```
+
+**Key features:**
+
+- **Multi-stage build** - Separates build dependencies from runtime, reducing image size
+- **Gradle 9.3.1 with JDK 17** - Build stage with full JDK
+- **Eclipse Temurin JRE** - Lightweight production runtime with only JRE
+- **Memory settings** - Default 256MB min, 512MB max heap
+- **Port 8080** - Standard Spring Boot port
+
+## Building the Docker Image
+
+### Build from Source
+
+<Steps>
+  <Step title="Navigate to project directory">
+    ```bash
+    cd /path/to/task-pro-api
+    ```
+  </Step>
+  
+  <Step title="Build the Docker image">
+    ```bash
+    docker build -t task-pro-api:latest .
+    ```
+    
+    **With custom tag:**
+    ```bash
+    docker build -t your-registry/task-pro-api:v1.0.0 .
+    ```
+  </Step>
+  
+  <Step title="Verify the image">
+    ```bash
+    docker images | grep task-pro-api
+    ```
+    
+    **Expected output:**
+    ```
+    task-pro-api    latest    abc123def456    2 minutes ago    350MB
+    ```
+  </Step>
+</Steps>
+
+<Info>
+The build process takes 2-5 minutes depending on your machine. Gradle will download dependencies on first build.
+</Info>
+
+### Build with Custom Memory Settings
+
+```bash
+docker build \
+  --build-arg JAVA_TOOL_OPTIONS="-Xms512m -Xmx1g" \
+  -t task-pro-api:latest .
+```
+
+### Multi-Platform Build
+
+Build for different architectures (amd64, arm64):
+
+```bash
+docker buildx create --use
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -t your-registry/task-pro-api:latest \
+  --push \
+  .
+```
+
+## Running with Docker
+
+### Basic Run Command
+
+```bash
+docker run -d \
+  --name task-pro-api \
+  -p 8080:8080 \
+  -e SPRING_DATASOURCE_URL="jdbc:postgresql://host.docker.internal:5432/task_pro_db" \
+  -e SPRING_DATASOURCE_USERNAME="task_pro_user" \
+  -e SPRING_DATASOURCE_PASSWORD="task_pro_pass" \
+  -e SPRING_JPA_HBM2DDL="validate" \
+  -e APP_CORS_ALLOWED_ORIGINS="https://app.example.com" \
+  -e SPRING_PROFILES_ACTIVE="prod" \
+  task-pro-api:latest
+```
+
+**Flags explained:**
+
+- `-d` - Run in detached mode (background)
+- `--name` - Container name for easy reference
+- `-p 8080:8080` - Map host port 8080 to container port 8080
+- `-e` - Set environment variables
+
+### Run with Environment File
+
+Create a `.env` file:
+
+```bash
+# .env
+SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/task_pro_db
+SPRING_DATASOURCE_USERNAME=task_pro_user
+SPRING_DATASOURCE_PASSWORD=task_pro_pass
+SPRING_JPA_HBM2DDL=validate
+APP_CORS_ALLOWED_ORIGINS=https://app.example.com
+SPRING_PROFILES_ACTIVE=prod
+```
+
+Then run:
+
+```bash
+docker run -d \
+  --name task-pro-api \
+  -p 8080:8080 \
+  --env-file .env \
+  task-pro-api:latest
+```
+
+### Run with Custom Memory
+
+```bash
+docker run -d \
+  --name task-pro-api \
+  -p 8080:8080 \
+  -e JAVA_TOOL_OPTIONS="-Xms512m -Xmx1g" \
+  --env-file .env \
+  task-pro-api:latest
+```
+
+### Check Logs
+
+```bash
+# Follow logs
+docker logs -f task-pro-api
+
+# Last 100 lines
+docker logs --tail 100 task-pro-api
+
+# Logs since 1 hour ago
+docker logs --since 1h task-pro-api
+```
+
+### Stop and Remove Container
+
+```bash
+# Stop container
+docker stop task-pro-api
+
+# Remove container
+docker rm task-pro-api
+
+# Stop and remove in one command
+docker rm -f task-pro-api
+```
+
+## Docker Compose
+
+### Full Stack with PostgreSQL
+
+Create `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  db:
+    image: postgres:14-alpine
+    container_name: task-pro-db
+    environment:
+      POSTGRES_DB: task_pro_db
+      POSTGRES_USER: task_pro_user
+      POSTGRES_PASSWORD: task_pro_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U task_pro_user -d task_pro_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: task-pro-api
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/task_pro_db
+      SPRING_DATASOURCE_USERNAME: task_pro_user
+      SPRING_DATASOURCE_PASSWORD: task_pro_pass
+      SPRING_JPA_HBM2DDL: update
+      APP_CORS_ALLOWED_ORIGINS: http://localhost:3000
+      SPRING_PROFILES_ACTIVE: dev
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+```
+
+### Start All Services
+
+```bash
+# Build and start in detached mode
+docker compose up -d --build
+
+# View logs
+docker compose logs -f
+
+# View logs for specific service
+docker compose logs -f api
+
+# Check status
+docker compose ps
+```
+
+### Stop All Services
+
+```bash
+# Stop services
+docker compose stop
+
+# Stop and remove containers
+docker compose down
+
+# Stop, remove containers, and delete volumes
+docker compose down -v
+```
+
+### Production Docker Compose
+
+For production, create `docker-compose.prod.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  api:
+    image: your-registry/task-pro-api:v1.0.0
+    container_name: task-pro-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://external-db.example.com:5432/task_pro_db?ssl=true
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_JPA_HBM2DDL: validate
+      APP_CORS_ALLOWED_ORIGINS: https://app.example.com,https://www.example.com
+      SPRING_PROFILES_ACTIVE: prod
+      JAVA_TOOL_OPTIONS: "-Xms1g -Xmx2g"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+Run with:
+
+```bash
+# Load environment variables from .env file
+docker compose -f docker-compose.prod.yml up -d
+```
+
+## Publishing to Container Registry
+
+### Docker Hub
+
+```bash
+# Login
+docker login
+
+# Tag image
+docker tag task-pro-api:latest your-username/task-pro-api:v1.0.0
+docker tag task-pro-api:latest your-username/task-pro-api:latest
+
+# Push
+docker push your-username/task-pro-api:v1.0.0
+docker push your-username/task-pro-api:latest
+```
+
+### GitHub Container Registry
+
+```bash
+# Login (use GitHub Personal Access Token)
+echo $GITHUB_TOKEN | docker login ghcr.io -u your-username --password-stdin
+
+# Tag image
+docker tag task-pro-api:latest ghcr.io/your-username/task-pro-api:v1.0.0
+
+# Push
+docker push ghcr.io/your-username/task-pro-api:v1.0.0
+```
+
+### AWS ECR
+
+```bash
+# Login
+aws ecr get-login-password --region us-east-1 | \
+  docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-east-1.amazonaws.com
+
+# Tag image
+docker tag task-pro-api:latest 123456789012.dkr.ecr.us-east-1.amazonaws.com/task-pro-api:v1.0.0
+
+# Push
+docker push 123456789012.dkr.ecr.us-east-1.amazonaws.com/task-pro-api:v1.0.0
+```
+
+## Deployment Platforms
+
+### Easypanel (VPS)
+
+From the `README_DEPLOY.md`:
+
+<Steps>
+  <Step title="Build and push image">
+    ```bash
+    docker build -t your-repo/task-pro-api:latest .
+    docker push your-repo/task-pro-api:latest
+    ```
+  </Step>
+  
+  <Step title="Create application in Easypanel">
+    1. Go to your Easypanel dashboard
+    2. Click "Create Application"
+    3. Select "Docker Image"
+    4. Enter image name: `your-repo/task-pro-api:latest`
+  </Step>
+  
+  <Step title="Configure environment variables">
+    Add these in the Easypanel UI:
+    
+    ```
+    SPRING_PROFILES_ACTIVE=prod
+    SPRING_DATASOURCE_URL=jdbc:postgresql://<DB_HOST>:5432/<DB_NAME>
+    SPRING_DATASOURCE_USERNAME=<DB_USER>
+    SPRING_DATASOURCE_PASSWORD=<DB_PASS>
+    SPRING_JPA_HBM2DDL=validate
+    APP_CORS_ALLOWED_ORIGINS=https://mi-frontend.com
+    ```
+  </Step>
+  
+  <Step title="Configure healthcheck">
+    Set healthcheck endpoint to `/actuator/health`
+  </Step>
+  
+  <Step title="Deploy">
+    Click "Deploy" and wait for the container to start
+  </Step>
+</Steps>
+
+### Railway
+
+```bash
+# Install Railway CLI
+npm install -g @railway/cli
+
+# Login
+railway login
+
+# Initialize project
+railway init
+
+# Add PostgreSQL
+railway add postgres
+
+# Set environment variables
+railway variables set SPRING_PROFILES_ACTIVE=prod
+railway variables set APP_CORS_ALLOWED_ORIGINS=https://your-app.com
+
+# Deploy
+railway up
+```
+
+### Render
+
+1. **Connect your GitHub repository** to Render
+2. **Create a new Web Service**
+3. **Configure build settings:**
+   - Environment: Docker
+   - Dockerfile path: `./Dockerfile`
+4. **Add environment variables** in Render dashboard
+5. **Deploy**
+
+### AWS ECS (Fargate)
+
+<Steps>
+  <Step title="Push image to ECR">
+    ```bash
+    aws ecr create-repository --repository-name task-pro-api
+    docker tag task-pro-api:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/task-pro-api:latest
+    docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/task-pro-api:latest
+    ```
+  </Step>
+  
+  <Step title="Create ECS task definition">
+    Create a task definition JSON with your image URI and environment variables.
+  </Step>
+  
+  <Step title="Create ECS service">
+    Use Fargate launch type with Application Load Balancer.
+  </Step>
+  
+  <Step title="Configure health check">
+    Point ALB health check to `/actuator/health`
+  </Step>
+</Steps>
+
+## Docker Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Multi-Stage Builds" icon="layer-group">
+    The included Dockerfile already does this. Build artifacts stay in build stage, only runtime goes to final image.
+  </Card>
+  
+  <Card title="Tag Images Properly" icon="tag">
+    Use semantic versioning: `v1.0.0`, `v1.0.1`, plus `latest` tag for production.
+  </Card>
+  
+  <Card title="Set Resource Limits" icon="gauge">
+    Use `--memory` and `--cpus` flags to prevent container from consuming all host resources.
+    ```bash
+    docker run -d --memory="1g" --cpus="1.0" task-pro-api
+    ```
+  </Card>
+  
+  <Card title="Use Health Checks" icon="heart-pulse">
+    Always configure health checks pointing to `/actuator/health` for orchestration platforms.
+  </Card>
+  
+  <Card title="Configure Logging" icon="file-lines">
+    Use log rotation to prevent disk space issues:
+    ```yaml
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ```
+  </Card>
+  
+  <Card title="Use Secrets Management" icon="key">
+    Never hardcode secrets. Use Docker secrets, environment variables from secret managers, or mounted volumes.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Container exits immediately">
+    **Check logs:**
+    ```bash
+    docker logs task-pro-api
+    ```
+    
+    **Common causes:**
+    - Database connection failed
+    - Missing required environment variables
+    - Invalid configuration
+  </Accordion>
+  
+  <Accordion title="Cannot connect to database from container">
+    **For local PostgreSQL:**
+    - Use `host.docker.internal` instead of `localhost`
+    - Or use Docker network with `--network` flag
+    
+    **For Docker Compose:**
+    - Use service name as hostname: `jdbc:postgresql://db:5432/task_pro_db`
+  </Accordion>
+  
+  <Accordion title="Health check failing">
+    **Debug:**
+    ```bash
+    # Enter container
+    docker exec -it task-pro-api /bin/sh
+    
+    # Test health endpoint
+    curl http://localhost:8080/actuator/health
+    ```
+    
+    **Fix:**
+    - Ensure application started successfully
+    - Check database connection
+    - Verify port 8080 is accessible
+  </Accordion>
+  
+  <Accordion title="Out of memory errors">
+    **Increase heap size:**
+    ```bash
+    docker run -d \
+      -e JAVA_TOOL_OPTIONS="-Xms1g -Xmx2g" \
+      task-pro-api:latest
+    ```
+    
+    **Or increase container memory:**
+    ```bash
+    docker run -d --memory="2g" task-pro-api:latest
+    ```
+  </Accordion>
+  
+  <Accordion title="Build fails with Gradle errors">
+    **Common fixes:**
+    ```bash
+    # Clear Gradle cache
+    ./gradlew clean build --no-daemon
+    
+    # Rebuild Docker image without cache
+    docker build --no-cache -t task-pro-api:latest .
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="gear" href="/deployment/environment-variables">
+    Complete guide to all configuration options
+  </Card>
+  <Card title="Database Setup" icon="database" href="/deployment/database-setup">
+    Set up PostgreSQL for your deployment
+  </Card>
+  <Card title="Production Guide" icon="shield" href="/deployment/production">
+    Production deployment best practices and security
+  </Card>
+</CardGroup>

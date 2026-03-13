@@ -1,0 +1,44 @@
+---
+title: "Delete Folder"
+api: "DELETE /api/folders/{folderId}"
+description: "Delete a folder permanently"
+---
+
+## Path Parameters
+
+<ParamField path="folderId" type="number" required>
+  The unique identifier of the folder to delete
+</ParamField>
+
+## Response
+
+Returns a 204 No Content response on successful deletion with no response body.
+
+<RequestExample>
+```bash cURL
+curl -X DELETE https://api.taskpro.com/api/folders/42 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 204 No Content
+// No response body
+```
+
+```json 404 Not Found
+{
+  "detail": "Folder not found"
+}
+```
+
+```json 401 Unauthorized
+{
+  "detail": "Authentication required"
+}
+```
+</ResponseExample>
+
+<Warning>
+Deleting a folder is a permanent action and cannot be undone. Consider archiving the folder instead by using the update endpoint with `isArchived: true`.
+</Warning>

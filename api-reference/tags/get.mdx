@@ -1,0 +1,57 @@
+---
+title: 'Get Tag'
+api: 'GET /api/tags/{tagId}'
+---
+
+Retrieve a specific tag by its ID.
+
+## Request
+
+<ParamField path="tagId" type="number" required>
+  The unique identifier of the tag to retrieve
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X GET https://api.taskpro.com/api/tags/123 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## Response
+
+<ResponseField name="tagId" type="number">
+  The unique identifier of the tag
+</ResponseField>
+
+<ResponseField name="tagName" type="string">
+  The name of the tag
+</ResponseField>
+
+<ResponseField name="color" type="string" optional>
+  The color code for the tag
+</ResponseField>
+
+### Example Response
+
+<ResponseExample>
+```json 200 OK
+{
+  "tagId": 123,
+  "tagName": "Urgent",
+  "color": "#FF0000"
+}
+```
+
+```json 404 Not Found
+{
+  "detail": "Tag not found"
+}
+```
+
+```json 401 Unauthorized
+{
+  "detail": "Authentication required"
+}
+```
+</ResponseExample>

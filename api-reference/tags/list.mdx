@@ -1,0 +1,63 @@
+---
+title: 'List Tags'
+api: 'GET /api/tags'
+---
+
+Retrieve all tags for the authenticated user.
+
+## Request
+
+No request body or parameters required.
+
+### Example Request
+
+```bash
+curl -X GET https://api.taskpro.com/api/tags \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## Response
+
+Returns an array of tag objects.
+
+<ResponseField name="tagId" type="number">
+  The unique identifier of the tag
+</ResponseField>
+
+<ResponseField name="tagName" type="string">
+  The name of the tag
+</ResponseField>
+
+<ResponseField name="color" type="string" optional>
+  The color code for the tag
+</ResponseField>
+
+### Example Response
+
+<ResponseExample>
+```json 200 OK
+[
+  {
+    "tagId": 123,
+    "tagName": "Urgent",
+    "color": "#FF0000"
+  },
+  {
+    "tagId": 124,
+    "tagName": "Work",
+    "color": "#0000FF"
+  },
+  {
+    "tagId": 125,
+    "tagName": "Personal",
+    "color": null
+  }
+]
+```
+
+```json 401 Unauthorized
+{
+  "detail": "Authentication required"
+}
+```
+</ResponseExample>

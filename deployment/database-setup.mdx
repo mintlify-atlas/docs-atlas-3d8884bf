@@ -1,0 +1,586 @@
+---
+title: 'Database Setup'
+description: 'Set up PostgreSQL database for Task Pro API with migrations and schema management'
+---
+
+## Overview
+
+Task Pro API uses PostgreSQL as its primary database. This guide covers setting up PostgreSQL locally, in Docker, and for production deployments.
+
+## Database Requirements
+
+- **PostgreSQL Version:** 12.0 or higher (recommended: 14+)
+- **Required Extensions:** None (uses standard PostgreSQL features)
+- **Minimum Storage:** 100MB (for development)
+- **Recommended Storage:** 10GB+ (for production with growth)
+
+## Database Schema
+
+Task Pro API uses JPA/Hibernate with the following core tables:
+
+### Core Tables
+
+- `users` - User accounts and authentication
+- `tasks` - Main task entities
+- `subtasks` - Task breakdown items
+- `folders` - Hierarchical task organization
+- `tags` - Flexible categorization labels
+
+### Join Tables
+
+- `task_tags` - Many-to-many: Tasks ↔ Tags
+- `subtask_tags` - Many-to-many: Subtasks ↔ Tags
+- `folder_tags` - Many-to-many: Folders ↔ Tags
+
+## Local Development Setup
+
+### Option 1: Docker Compose (Recommended)
+
+The repository includes a `docker-compose.postgres.yml` file for easy local PostgreSQL setup.
+
+<Steps>
+  <Step title="Start PostgreSQL container">
+    ```bash
+    docker compose -f docker-compose.postgres.yml up -d
+    ```
+    
+    This starts PostgreSQL with these default settings:
+    - **Host:** localhost
+    - **Port:** 5432
+    - **Database:** task_pro_db
+    - **User:** task_pro_user
+    - **Password:** task_pro_pass
+  </Step>
+  
+  <Step title="Verify connection">
+    ```bash
+    docker exec -it <container_name> psql -U task_pro_user -d task_pro_db
+    ```
+    
+    Or use any PostgreSQL client:
+    ```bash
+    psql -h localhost -U task_pro_user -d task_pro_db
+    ```
+  </Step>
+  
+  <Step title="Configure application">
+    Set environment variables:
+    ```bash
+    export SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/task_pro_db"
+    export SPRING_DATASOURCE_USERNAME="task_pro_user"
+    export SPRING_DATASOURCE_PASSWORD="task_pro_pass"
+    export SPRING_JPA_HBM2DDL="update"
+    ```
+  </Step>
+  
+  <Step title="Run the application">
+    ```bash
+    ./gradlew bootRun
+    ```
+    
+    The schema will be automatically created on first run (when using `ddl-auto=update`).
+  </Step>
+</Steps>
+
+### Option 2: Local PostgreSQL Installation
+
+<Tabs>
+  <Tab title="macOS">
+    **Using Homebrew:**
+    
+    ```bash
+    # Install PostgreSQL
+    brew install postgresql@14
+    
+    # Start PostgreSQL service
+    brew services start postgresql@14
+    
+    # Create database and user
+    createdb task_pro_db
+    psql task_pro_db -c "CREATE USER task_pro_user WITH PASSWORD 'task_pro_pass';"
+    psql task_pro_db -c "GRANT ALL PRIVILEGES ON DATABASE task_pro_db TO task_pro_user;"
+    ```
+  </Tab>
+  
+  <Tab title="Ubuntu/Debian">
+    ```bash
+    # Install PostgreSQL
+    sudo apt update
+    sudo apt install postgresql postgresql-contrib
+    
+    # Start PostgreSQL service
+    sudo systemctl start postgresql
+    sudo systemctl enable postgresql
+    
+    # Create database and user
+    sudo -u postgres psql -c "CREATE DATABASE task_pro_db;"
+    sudo -u postgres psql -c "CREATE USER task_pro_user WITH PASSWORD 'task_pro_pass';"
+    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE task_pro_db TO task_pro_user;"
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    1. **Download PostgreSQL** from [postgresql.org/download/windows](https://www.postgresql.org/download/windows/)
+    2. **Run the installer** and follow the wizard
+    3. **Remember the superuser password** you set during installation
+    4. **Open pgAdmin** or SQL Shell (psql)
+    5. **Run these commands:**
+    
+    ```sql
+    CREATE DATABASE task_pro_db;
+    CREATE USER task_pro_user WITH PASSWORD 'task_pro_pass';
+    GRANT ALL PRIVILEGES ON DATABASE task_pro_db TO task_pro_user;
+    ```
+  </Tab>
+</Tabs>
+
+## Manual Database Creation
+
+If you need to create the database manually:
+
+```sql
+-- Connect as superuser (postgres)
+psql -h localhost -U postgres
+
+-- Create database
+CREATE DATABASE task_pro_db
+  WITH OWNER = postgres
+  ENCODING = 'UTF8'
+  LC_COLLATE = 'en_US.UTF-8'
+  LC_CTYPE = 'en_US.UTF-8'
+  TEMPLATE = template0;
+
+-- Create user
+CREATE USER task_pro_user WITH PASSWORD 'task_pro_pass';
+
+-- Grant privileges
+GRANT ALL PRIVILEGES ON DATABASE task_pro_db TO task_pro_user;
+
+-- Connect to the database
+\c task_pro_db
+
+-- Grant schema privileges
+GRANT ALL ON SCHEMA public TO task_pro_user;
+```
+
+## Schema Management
+
+### Development: Automatic Schema Updates
+
+For local development, use Hibernate's auto-DDL feature:
+
+```bash
+export SPRING_JPA_HBM2DDL="update"
+```
+
+This automatically creates and updates tables based on your entity models.
+
+<Warning>
+Never use `ddl-auto=update` in production! It can cause data loss or schema corruption.
+</Warning>
+
+### Production: Flyway Migrations
+
+The application includes Flyway (version 9.20.0) for production-grade database migrations.
+
+**Configuration for production:**
+
+```bash
+export SPRING_JPA_HBM2DDL="validate"
+```
+
+This ensures the schema matches your entities without making changes.
+
+#### Creating Migrations
+
+Create SQL migration files in `src/main/resources/db/migration/`:
+
+```
+src/main/resources/db/migration/
+├── V1__initial_schema.sql
+├── V2__add_task_priority.sql
+└── V3__add_folder_icons.sql
+```
+
+**Example migration:**
+
+```sql
+-- V1__initial_schema.sql
+CREATE TABLE users (
+    user_id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255),
+    full_name VARCHAR(100),
+    avatar_url VARCHAR(500),
+    is_active BOOLEAN DEFAULT true,
+    email_verified BOOLEAN DEFAULT false,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    last_login_at TIMESTAMP
+);
+
+CREATE TABLE folders (
+    folder_id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(user_id),
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    color VARCHAR(7),
+    icon VARCHAR(50),
+    parent_folder_id BIGINT REFERENCES folders(folder_id),
+    display_order INT DEFAULT 0,
+    is_archived BOOLEAN DEFAULT false,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+CREATE TABLE tags (
+    tag_id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(user_id),
+    tag_name VARCHAR(100) NOT NULL,
+    color VARCHAR(7),
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+CREATE TABLE tasks (
+    task_id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(user_id),
+    folder_id BIGINT REFERENCES folders(folder_id),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    duration_tag_id INT,
+    priority INT DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'pending',
+    due_date DATE,
+    due_time TIME,
+    completed_at TIMESTAMP,
+    display_order INT DEFAULT 0,
+    is_archived BOOLEAN DEFAULT false,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+CREATE TABLE subtasks (
+    subtask_id BIGSERIAL PRIMARY KEY,
+    task_id BIGINT NOT NULL REFERENCES tasks(task_id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    duration_tag_id INT,
+    status VARCHAR(20) DEFAULT 'pending',
+    completed_at TIMESTAMP,
+    display_order INT DEFAULT 0,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+
+-- Join tables
+CREATE TABLE task_tags (
+    task_id BIGINT NOT NULL REFERENCES tasks(task_id) ON DELETE CASCADE,
+    tag_id BIGINT NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
+    PRIMARY KEY (task_id, tag_id)
+);
+
+CREATE TABLE subtask_tags (
+    subtask_id BIGINT NOT NULL REFERENCES subtasks(subtask_id) ON DELETE CASCADE,
+    tag_id BIGINT NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
+    PRIMARY KEY (subtask_id, tag_id)
+);
+
+CREATE TABLE folder_tags (
+    folder_id BIGINT NOT NULL REFERENCES folders(folder_id) ON DELETE CASCADE,
+    tag_id BIGINT NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
+    PRIMARY KEY (folder_id, tag_id)
+);
+
+-- Indexes for performance
+CREATE INDEX idx_tasks_user_id ON tasks(user_id);
+CREATE INDEX idx_tasks_folder_id ON tasks(folder_id);
+CREATE INDEX idx_tasks_status ON tasks(status);
+CREATE INDEX idx_subtasks_task_id ON subtasks(task_id);
+CREATE INDEX idx_folders_user_id ON folders(user_id);
+CREATE INDEX idx_folders_parent_id ON folders(parent_folder_id);
+CREATE INDEX idx_tags_user_id ON tags(user_id);
+```
+
+#### Running Migrations
+
+Flyway runs automatically on application startup:
+
+```bash
+# Application will run pending migrations
+./gradlew bootRun
+```
+
+To run migrations manually:
+
+```bash
+./gradlew flywayMigrate
+```
+
+## Database Connection Pooling
+
+For production, configure connection pooling in `application.properties`:
+
+```properties
+# HikariCP settings (default connection pool)
+spring.datasource.hikari.maximum-pool-size=10
+spring.datasource.hikari.minimum-idle=5
+spring.datasource.hikari.idle-timeout=300000
+spring.datasource.hikari.max-lifetime=1200000
+spring.datasource.hikari.connection-timeout=30000
+```
+
+## Production Database Setup
+
+### Cloud PostgreSQL Services
+
+<Tabs>
+  <Tab title="AWS RDS">
+    1. **Create RDS PostgreSQL instance**
+       - Go to AWS RDS Console
+       - Choose PostgreSQL 14 or higher
+       - Select instance size (minimum: db.t3.micro)
+       
+    2. **Configure security group**
+       - Allow inbound on port 5432 from your application
+       
+    3. **Get connection details**
+       ```
+       Host: mydb.abc123.us-east-1.rds.amazonaws.com
+       Port: 5432
+       Database: task_pro_db
+       ```
+       
+    4. **Set environment variables**
+       ```bash
+       SPRING_DATASOURCE_URL=jdbc:postgresql://mydb.abc123.us-east-1.rds.amazonaws.com:5432/task_pro_db?ssl=true&sslmode=require
+       SPRING_DATASOURCE_USERNAME=admin
+       SPRING_DATASOURCE_PASSWORD=<from_secrets_manager>
+       ```
+  </Tab>
+  
+  <Tab title="Google Cloud SQL">
+    1. **Create Cloud SQL PostgreSQL instance**
+       - Go to Cloud SQL Console
+       - Choose PostgreSQL 14
+       - Select machine type (minimum: db-f1-micro)
+       
+    2. **Configure networking**
+       - Add authorized networks or use Cloud SQL Proxy
+       
+    3. **Create database and user**
+       ```sql
+       CREATE DATABASE task_pro_db;
+       CREATE USER task_pro_user WITH PASSWORD 'secure_password';
+       GRANT ALL PRIVILEGES ON DATABASE task_pro_db TO task_pro_user;
+       ```
+       
+    4. **Connect via Cloud SQL Proxy** (recommended)
+       ```bash
+       cloud_sql_proxy -instances=PROJECT:REGION:INSTANCE=tcp:5432
+       ```
+  </Tab>
+  
+  <Tab title="DigitalOcean">
+    1. **Create Managed PostgreSQL cluster**
+       - Go to DigitalOcean Databases
+       - Choose PostgreSQL 14
+       - Select plan (minimum: Basic 1GB)
+       
+    2. **Get connection details**
+       - DigitalOcean provides a connection string
+       
+    3. **Create database**
+       ```sql
+       CREATE DATABASE task_pro_db;
+       ```
+       
+    4. **Use provided connection string**
+       ```bash
+       SPRING_DATASOURCE_URL=jdbc:postgresql://db-postgresql-nyc1-12345.ondigitalocean.com:25060/task_pro_db?sslmode=require
+       ```
+  </Tab>
+  
+  <Tab title="Self-Hosted">
+    1. **Install PostgreSQL on your server**
+       ```bash
+       sudo apt update
+       sudo apt install postgresql postgresql-contrib
+       ```
+       
+    2. **Configure for remote connections**
+       Edit `/etc/postgresql/14/main/postgresql.conf`:
+       ```
+       listen_addresses = '*'
+       ```
+       
+       Edit `/etc/postgresql/14/main/pg_hba.conf`:
+       ```
+       host    all    all    0.0.0.0/0    md5
+       ```
+       
+    3. **Restart PostgreSQL**
+       ```bash
+       sudo systemctl restart postgresql
+       ```
+       
+    4. **Configure firewall**
+       ```bash
+       sudo ufw allow 5432/tcp
+       ```
+  </Tab>
+</Tabs>
+
+### SSL/TLS Connections
+
+For production, always use SSL:
+
+```bash
+SPRING_DATASOURCE_URL="jdbc:postgresql://mydb.example.com:5432/task_pro_db?ssl=true&sslmode=require"
+```
+
+SSL modes:
+- `disable` - No SSL (development only)
+- `require` - Use SSL, but don't verify certificate
+- `verify-ca` - Use SSL and verify certificate authority
+- `verify-full` - Use SSL and verify hostname
+
+## Backup and Recovery
+
+### Creating Backups
+
+```bash
+# Full database dump
+pg_dump -h localhost -U task_pro_user -d task_pro_db -F c -f task_pro_backup.dump
+
+# SQL format backup
+pg_dump -h localhost -U task_pro_user -d task_pro_db > task_pro_backup.sql
+
+# Compressed backup
+pg_dump -h localhost -U task_pro_user -d task_pro_db | gzip > task_pro_backup.sql.gz
+```
+
+### Restoring Backups
+
+```bash
+# Restore from custom format
+pg_restore -h localhost -U task_pro_user -d task_pro_db task_pro_backup.dump
+
+# Restore from SQL
+psql -h localhost -U task_pro_user -d task_pro_db < task_pro_backup.sql
+
+# Restore from compressed
+gunzip -c task_pro_backup.sql.gz | psql -h localhost -U task_pro_user -d task_pro_db
+```
+
+### Automated Backups
+
+**Cron job for daily backups:**
+
+```bash
+# Add to crontab: crontab -e
+0 2 * * * pg_dump -h localhost -U task_pro_user -d task_pro_db | gzip > /backups/task_pro_$(date +\%Y\%m\%d).sql.gz
+```
+
+## Database Maintenance
+
+### Vacuum and Analyze
+
+Regularly optimize database performance:
+
+```sql
+-- Vacuum to reclaim space
+VACUUM ANALYZE;
+
+-- Or specific tables
+VACUUM ANALYZE tasks;
+VACUUM ANALYZE subtasks;
+```
+
+### Monitor Database Size
+
+```sql
+-- Check database size
+SELECT pg_size_pretty(pg_database_size('task_pro_db'));
+
+-- Check table sizes
+SELECT 
+  tablename,
+  pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
+```
+
+### Monitor Active Connections
+
+```sql
+-- See active connections
+SELECT count(*) FROM pg_stat_activity;
+
+-- Kill idle connections
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE state = 'idle' AND state_change < now() - interval '1 hour';
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="psql: FATAL: database does not exist">
+    **Solution:** Create the database first:
+    ```bash
+    createdb task_pro_db
+    # Or
+    psql -U postgres -c "CREATE DATABASE task_pro_db;"
+    ```
+  </Accordion>
+  
+  <Accordion title="psql: FATAL: role does not exist">
+    **Solution:** Create the user:
+    ```sql
+    CREATE USER task_pro_user WITH PASSWORD 'task_pro_pass';
+    GRANT ALL PRIVILEGES ON DATABASE task_pro_db TO task_pro_user;
+    ```
+  </Accordion>
+  
+  <Accordion title="Connection refused on port 5432">
+    **Check:**
+    1. Is PostgreSQL running? `systemctl status postgresql`
+    2. Is it listening on the right port? Check `postgresql.conf`
+    3. Firewall rules allow connections?
+    
+    **Solution:**
+    ```bash
+    # Start PostgreSQL
+    sudo systemctl start postgresql
+    
+    # Check listening ports
+    sudo netstat -plunt | grep 5432
+    ```
+  </Accordion>
+  
+  <Accordion title="Hibernate schema validation failed">
+    **Problem:** Entity model doesn't match database schema.
+    
+    **Solutions:**
+    1. Development: Use `ddl-auto=update` to auto-update schema
+    2. Production: Create a migration to fix the mismatch
+    3. Force recreation: `ddl-auto=create` (destroys data!)
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="gear" href="/deployment/environment-variables">
+    Configure database connection settings
+  </Card>
+  <Card title="Docker Deployment" icon="docker" href="/deployment/docker">
+    Deploy with Docker Compose including PostgreSQL
+  </Card>
+  <Card title="Production Guide" icon="shield" href="/deployment/production">
+    Production database best practices
+  </Card>
+</CardGroup>

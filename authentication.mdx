@@ -1,0 +1,394 @@
+---
+title: 'Authentication'
+description: 'Secure JWT-based authentication system for Task Pro API'
+---
+
+## Overview
+
+Task Pro API uses JWT (JSON Web Tokens) for secure, stateless authentication. All protected endpoints require a valid JWT token in the Authorization header.
+
+<Note>
+The API uses the Auth0 java-jwt library for token generation and validation, ensuring industry-standard security practices.
+</Note>
+
+## Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API
+    participant Database
+    
+    Client->>API: POST /api/auth/register
+    API->>Database: Create user
+    Database-->>API: User created
+    API-->>Client: 201 Created
+    
+    Client->>API: POST /api/auth/login
+    API->>Database: Verify credentials
+    Database-->>API: User validated
+    API-->>Client: JWT Token
+    
+    Client->>API: GET /api/tasks (with JWT)
+    API->>API: Validate JWT
+    API->>Database: Fetch tasks
+    Database-->>API: Tasks data
+    API-->>Client: 200 OK + Tasks
+```
+
+## Endpoints
+
+### Register a New User
+
+**Endpoint:** `POST /api/auth/register`
+
+**Description:** Creates a new user account with hashed password storage.
+
+**Request Body:**
+
+```kotlin
+data class UserCreateDto(
+    val username: String,      // 50 characters max, unique
+    val email: String,         // 255 characters max, unique
+    val password: String,      // Plain text, will be hashed
+    val fullName: String? = null  // Optional, 100 characters max
+)
+```
+
+**Example Request:**
+
+```bash
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "alice_wonder",
+    "email": "alice@example.com",
+    "password": "MySecureP@ssw0rd",
+    "fullName": "Alice Wonderland"
+  }'
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "userId": 42,
+  "username": "alice_wonder",
+  "email": "alice@example.com",
+  "fullName": "Alice Wonderland",
+  "avatarUrl": null,
+  "isActive": true,
+  "emailVerified": false,
+  "createdAt": "2026-03-13T14:30:00"
+}
+```
+
+**Error Responses:**
+
+- `400 Bad Request` - Invalid input (e.g., missing required fields)
+- `409 Conflict` - Username or email already exists
+
+---
+
+### Login and Get Token
+
+**Endpoint:** `POST /api/auth/login`
+
+**Description:** Authenticates user credentials and returns a JWT access token.
+
+**Request Body:**
+
+```kotlin
+data class UserLoginDto(
+    val email: String,
+    val password: String
+)
+```
+
+**Example Request:**
+
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "alice@example.com",
+    "password": "MySecureP@ssw0rd"
+  }'
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjQyLCJlbWFpbCI6ImFsaWNlQGV4YW1wbGUuY29tIiwiaWF0IjoxNzEwMzM2NjAwLCJleHAiOjE3MTAzNDAxMDB9.signature",
+  "tokenType": "bearer"
+}
+```
+
+**Token Structure:**
+
+The JWT token contains:
+
+```json
+{
+  "userId": 42,
+  "email": "alice@example.com",
+  "iat": 1710336600,  // Issued at timestamp
+  "exp": 1710340100   // Expiration timestamp
+}
+```
+
+**Error Responses:**
+
+- `401 Unauthorized` - Invalid email or password
+- `400 Bad Request` - Missing required fields
+
+<Warning>
+Store the access token securely. Never expose it in client-side code, logs, or version control.
+</Warning>
+
+---
+
+### Get Current User Profile
+
+**Endpoint:** `GET /api/auth/me`
+
+**Description:** Retrieves the authenticated user's profile information.
+
+**Authentication:** Required (JWT token)
+
+**Example Request:**
+
+```bash
+curl -X GET http://localhost:8080/api/auth/me \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "user_id": 42,
+  "username": "alice_wonder",
+  "email": "alice@example.com",
+  "full_name": "Alice Wonderland",
+  "avatar_url": null,
+  "is_active": true,
+  "email_verified": false,
+  "created_at": "2026-03-13T14:30:00"
+}
+```
+
+**Error Responses:**
+
+- `401 Unauthorized` - Missing, invalid, or expired token
+
+---
+
+## Using JWT Tokens
+
+### Authorization Header Format
+
+All protected endpoints require the JWT token in the Authorization header:
+
+```
+Authorization: Bearer <your_access_token>
+```
+
+### Code Examples
+
+<CodeGroup>
+```bash curl
+curl -X GET http://localhost:8080/api/tasks \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+```
+
+```javascript JavaScript
+const accessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+
+const response = await fetch('http://localhost:8080/api/tasks', {
+  headers: {
+    'Authorization': `Bearer ${accessToken}`
+  }
+});
+
+const tasks = await response.json();
+```
+
+```python Python
+import requests
+
+access_token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+
+headers = {
+    'Authorization': f'Bearer {access_token}'
+}
+
+response = requests.get(
+    'http://localhost:8080/api/tasks',
+    headers=headers
+)
+
+tasks = response.json()
+```
+
+```kotlin Kotlin
+import okhttp3.OkHttpClient
+import okhttp3.Request
+
+val accessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+val client = OkHttpClient()
+val request = Request.Builder()
+    .url("http://localhost:8080/api/tasks")
+    .addHeader("Authorization", "Bearer $accessToken")
+    .build()
+
+val response = client.newCall(request).execute()
+val tasks = response.body?.string()
+```
+</CodeGroup>
+
+## Security Best Practices
+
+<Steps>
+  <Step title="Use HTTPS in Production">
+    Always use HTTPS in production to prevent token interception. The JWT token grants full access to the user's account.
+  </Step>
+  
+  <Step title="Store Tokens Securely">
+    - **Web Apps**: Use HttpOnly cookies or secure localStorage
+    - **Mobile Apps**: Use platform-specific secure storage (Keychain, KeyStore)
+    - **Never** commit tokens to version control
+  </Step>
+  
+  <Step title="Implement Token Refresh">
+    JWT tokens have expiration times. Implement a refresh mechanism or re-authentication flow before tokens expire.
+  </Step>
+  
+  <Step title="Validate on Every Request">
+    The API validates the token on every protected endpoint. Ensure your client handles 401 responses gracefully.
+  </Step>
+  
+  <Step title="Use Strong Passwords">
+    Enforce strong password policies in your application:
+    - Minimum 8 characters
+    - Mix of uppercase, lowercase, numbers, and symbols
+    - No common passwords
+  </Step>
+</Steps>
+
+## Token Validation
+
+The API validates JWT tokens using these checks:
+
+1. **Signature Verification**: Ensures token wasn't tampered with
+2. **Expiration Check**: Validates token hasn't expired
+3. **User Existence**: Confirms user still exists and is active
+4. **Format Validation**: Ensures proper JWT structure
+
+## Authentication Middleware
+
+The authentication middleware extracts the user ID from the JWT and makes it available to controllers:
+
+```kotlin
+// In controllers, access the authenticated user ID:
+val userId = request.getAttribute("current_user_id") as? Long
+if (userId == null) {
+    return ResponseEntity.status(401).build()
+}
+```
+
+This ensures that users can only access their own resources.
+
+## Common Authentication Errors
+
+<AccordionGroup>
+  <Accordion title="401 Unauthorized - Missing Token">
+    **Error:** No Authorization header provided
+    
+    **Response:**
+    ```json
+    {
+      "detail": "Could not validate credentials"
+    }
+    ```
+    
+    **Solution:** Include the `Authorization: Bearer <token>` header in your request.
+  </Accordion>
+  
+  <Accordion title="401 Unauthorized - Invalid Token">
+    **Error:** Token signature invalid or token malformed
+    
+    **Response:**
+    ```json
+    {
+      "detail": "Could not validate credentials"
+    }
+    ```
+    
+    **Solution:** Ensure you're using the complete token received from `/api/auth/login`.
+  </Accordion>
+  
+  <Accordion title="401 Unauthorized - Expired Token">
+    **Error:** Token has passed its expiration time
+    
+    **Response:**
+    ```json
+    {
+      "detail": "Could not validate credentials"
+    }
+    ```
+    
+    **Solution:** Login again to receive a new token.
+  </Accordion>
+  
+  <Accordion title="401 Unauthorized - User Not Found">
+    **Error:** User account was deleted or deactivated
+    
+    **Response:**
+    ```json
+    {
+      "detail": "Could not validate credentials"
+    }
+    ```
+    
+    **Solution:** The user account no longer exists. Register a new account or contact support.
+  </Accordion>
+</AccordionGroup>
+
+## CORS Configuration
+
+The API supports Cross-Origin Resource Sharing (CORS) for browser-based applications. Configure allowed origins using the `APP_CORS_ALLOWED_ORIGINS` environment variable:
+
+```bash
+# Single origin
+APP_CORS_ALLOWED_ORIGINS=https://myapp.com
+
+# Multiple origins (comma-separated)
+APP_CORS_ALLOWED_ORIGINS=https://myapp.com,https://staging.myapp.com
+
+# Allow all origins (not recommended for production)
+APP_CORS_ALLOWED_ORIGINS=*
+```
+
+<Warning>
+Using `APP_CORS_ALLOWED_ORIGINS=*` in production is a security risk. Always specify explicit origins for production deployments.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Task Management" icon="list-check" href="/concepts/tasks">
+    Learn how to create and manage tasks with the authenticated API
+  </Card>
+  <Card title="Folder Organization" icon="folder" href="/concepts/folders">
+    Organize your tasks with folders and hierarchies
+  </Card>
+  <Card title="Environment Variables" icon="gear" href="/deployment/environment-variables">
+    Configure JWT secrets and authentication settings
+  </Card>
+  <Card title="Production Security" icon="shield" href="/deployment/production">
+    Best practices for securing your production deployment
+  </Card>
+</CardGroup>

@@ -1,0 +1,75 @@
+---
+title: 'Delete Task'
+api: 'DELETE /api/tasks/{taskId}'
+description: 'Delete a task permanently'
+---
+
+Permanently delete a task and all its associated data, including subtasks. This action cannot be undone.
+
+<Warning>
+  This operation permanently deletes the task and all its subtasks. Consider archiving the task instead if you may need to reference it later.
+</Warning>
+
+## Path Parameters
+
+<ParamField path="taskId" type="number" required>
+  The unique identifier of the task to delete
+</ParamField>
+
+## Response
+
+Returns a 204 No Content response on successful deletion.
+
+<RequestExample>
+
+```bash cURL
+curl -X DELETE https://api.taskpro.com/api/tasks/42 \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript JavaScript
+const response = await fetch('https://api.taskpro.com/api/tasks/42', {
+  method: 'DELETE',
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY'
+  }
+});
+
+if (response.status === 204) {
+  console.log('Task deleted successfully');
+}
+```
+
+```python Python
+import requests
+
+response = requests.delete(
+    'https://api.taskpro.com/api/tasks/42',
+    headers={'Authorization': 'Bearer YOUR_API_KEY'}
+)
+
+if response.status_code == 204:
+    print('Task deleted successfully')
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```text 204 No Content
+(Empty response body)
+```
+
+```json 404 Not Found
+{
+  "detail": "Task not found"
+}
+```
+
+```json 401 Unauthorized
+{
+  "detail": "Unauthorized"
+}
+```
+
+</ResponseExample>

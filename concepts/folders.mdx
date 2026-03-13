@@ -1,0 +1,595 @@
+---
+title: 'Folders'
+description: 'Organize tasks with hierarchical folder structures, colors, and icons'
+---
+
+## Overview
+
+Folders provide hierarchical organization for your tasks. Each folder can contain tasks and child folders, allowing you to create nested project structures with custom colors, icons, and descriptions.
+
+## Folder Model
+
+The Folder entity is defined in `/src/main/kotlin/com/expozcode/task_pro_api/model/Folder.kt`:
+
+```kotlin
+@Entity
+@Table(name = "folders")
+data class Folder(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val folderId: Long? = null,
+    
+    var userId: Long,
+    var name: String,                    // Required, max 100 chars
+    var description: String? = null,
+    var color: String? = null,           // Hex color, max 7 chars
+    var icon: String? = null,            // Icon name, max 50 chars
+    var parentFolderId: Long? = null,
+    var displayOrder: Int = 0,
+    var isArchived: Boolean = false,
+    var createdAt: LocalDateTime? = null,
+    var updatedAt: LocalDateTime? = null,
+    var tags: Set<Tag> = emptySet(),
+    var tasks: Set<Task> = emptySet(),
+    var children: Set<Folder> = emptySet()
+)
+```
+
+## Folder Properties
+
+### Core Fields
+
+<AccordionGroup>
+  <Accordion title="folderId (Long)">
+    Auto-generated unique identifier. Read-only.
+  </Accordion>
+  
+  <Accordion title="userId (Long)">
+    The owner of this folder. Folders are isolated per user.
+  </Accordion>
+  
+  <Accordion title="name (String)">
+    **Required.** The folder's display name (max 100 characters).
+    
+    ```json
+    "name": "Work Projects"
+    ```
+  </Accordion>
+  
+  <Accordion title="description (String)">
+    **Optional.** Detailed description of the folder's purpose.
+    
+    ```json
+    "description": "All tasks related to client projects and deliverables"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Visual Customization
+
+<AccordionGroup>
+  <Accordion title="color (String)">
+    **Optional.** Hex color code for visual identification (max 7 characters, including #).
+    
+    ```json
+    "color": "#3B82F6"
+    ```
+    
+    <Tip>
+    Use distinct colors for top-level folders to make them easy to identify at a glance.
+    </Tip>
+  </Accordion>
+  
+  <Accordion title="icon (String)">
+    **Optional.** Icon identifier for visual representation (max 50 characters).
+    
+    ```json
+    "icon": "briefcase"
+    ```
+    
+    The format depends on your frontend icon library (e.g., FontAwesome, Material Icons).
+  </Accordion>
+</AccordionGroup>
+
+### Hierarchy
+
+<Accordion title="parentFolderId (Long)">
+  **Optional.** ID of the parent folder. `null` indicates a root-level folder.
+  
+  ```json
+  "parentFolderId": 5
+  ```
+  
+  <Note>
+  Create folder hierarchies by setting `parentFolderId` when creating or updating folders.
+  </Note>
+  
+  **Example hierarchy:**
+  ```
+  Work Projects (parentFolderId: null)
+  ├── Client A (parentFolderId: 1)
+  │   ├── Phase 1 (parentFolderId: 2)
+  │   └── Phase 2 (parentFolderId: 2)
+  └── Client B (parentFolderId: 1)
+  ```
+</Accordion>
+
+### Organization
+
+<AccordionGroup>
+  <Accordion title="displayOrder (Int)">
+    Controls the visual ordering of folders within the same parent. Lower numbers appear first.
+    
+    ```json
+    "displayOrder": 10
+    ```
+  </Accordion>
+  
+  <Accordion title="isArchived (Boolean)">
+    Mark folders as archived without deleting them (default: false).
+    
+    ```json
+    "isArchived": true
+    ```
+    
+    <Warning>
+    Archived folders and their tasks are excluded from default queries unless `includeArchived=true` is specified.
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+### Timestamps
+
+<AccordionGroup>
+  <Accordion title="createdAt (LocalDateTime)">
+    Automatically set when the folder is created. Read-only.
+  </Accordion>
+  
+  <Accordion title="updatedAt (LocalDateTime)">
+    Automatically updated on any modification. Read-only.
+  </Accordion>
+</AccordionGroup>
+
+### Relationships
+
+<AccordionGroup>
+  <Accordion title="tags (Set<Tag>)">
+    Many-to-many relationship. Folders can have multiple tags for categorization.
+    
+    ```json
+    "tags": [
+      {"tagId": 1, "tagName": "client-work", "color": "#FF0000"},
+      {"tagId": 5, "tagName": "high-value", "color": "#FFD700"}
+    ]
+    ```
+  </Accordion>
+  
+  <Accordion title="tasks (Set<Task>)">
+    One-to-many relationship. Folders contain multiple tasks.
+  </Accordion>
+  
+  <Accordion title="children (Set<Folder>)">
+    One-to-many relationship. Folders can contain child folders for nested hierarchies.
+  </Accordion>
+</AccordionGroup>
+
+## API Operations
+
+### Create a Folder
+
+**Endpoint:** `POST /api/folders`
+
+**Request DTO:**
+
+```kotlin
+data class FolderCreateDto(
+    val name: String,
+    val description: String? = null,
+    val color: String? = null,
+    val icon: String? = null,
+    val parentFolderId: Long? = null,
+    val displayOrder: Int = 0,
+    val tagIds: List<Long>? = null
+)
+```
+
+**Example - Create Root Folder:**
+
+```bash
+curl -X POST http://localhost:8080/api/folders \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Work Projects",
+    "description": "All professional projects and tasks",
+    "color": "#3B82F6",
+    "icon": "briefcase",
+    "displayOrder": 10
+  }'
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "folderId": 1,
+  "userId": 42,
+  "tags": [],
+  "name": "Work Projects",
+  "description": "All professional projects and tasks",
+  "color": "#3B82F6",
+  "icon": "briefcase",
+  "parentFolderId": null,
+  "displayOrder": 10,
+  "isArchived": false,
+  "createdAt": "2026-03-13T10:00:00",
+  "updatedAt": "2026-03-13T10:00:00"
+}
+```
+
+**Example - Create Child Folder:**
+
+```bash
+curl -X POST http://localhost:8080/api/folders \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Client A",
+    "description": "Tasks for Client A project",
+    "color": "#10B981",
+    "icon": "user-tie",
+    "parentFolderId": 1,
+    "displayOrder": 1,
+    "tagIds": [3, 7]
+  }'
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "folderId": 2,
+  "userId": 42,
+  "tags": [
+    {"tagId": 3, "tagName": "client", "color": "#FF5733"},
+    {"tagId": 7, "tagName": "active", "color": "#00FF00"}
+  ],
+  "name": "Client A",
+  "description": "Tasks for Client A project",
+  "color": "#10B981",
+  "icon": "user-tie",
+  "parentFolderId": 1,
+  "displayOrder": 1,
+  "isArchived": false,
+  "createdAt": "2026-03-13T10:05:00",
+  "updatedAt": "2026-03-13T10:05:00"
+}
+```
+
+### List Folders
+
+**Endpoint:** `GET /api/folders`
+
+**Query Parameters:**
+
+- `includeArchived` (optional, default: false) - Include archived folders
+
+**Example:**
+
+```bash
+# Get all active folders
+curl -X GET http://localhost:8080/api/folders \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Get all folders including archived
+curl -X GET "http://localhost:8080/api/folders?includeArchived=true" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Response (200 OK):**
+
+```json
+[
+  {
+    "folderId": 1,
+    "userId": 42,
+    "tags": [],
+    "name": "Work Projects",
+    "description": "All professional projects and tasks",
+    "color": "#3B82F6",
+    "icon": "briefcase",
+    "parentFolderId": null,
+    "displayOrder": 10,
+    "isArchived": false,
+    "createdAt": "2026-03-13T10:00:00",
+    "updatedAt": "2026-03-13T10:00:00"
+  },
+  {
+    "folderId": 2,
+    "userId": 42,
+    "tags": [{"tagId": 3, "tagName": "client", "color": "#FF5733"}],
+    "name": "Client A",
+    "description": "Tasks for Client A project",
+    "color": "#10B981",
+    "icon": "user-tie",
+    "parentFolderId": 1,
+    "displayOrder": 1,
+    "isArchived": false,
+    "createdAt": "2026-03-13T10:05:00",
+    "updatedAt": "2026-03-13T10:05:00"
+  }
+]
+```
+
+<Tip>
+Build the folder tree in your client by grouping folders by `parentFolderId`.
+</Tip>
+
+### Get a Single Folder
+
+**Endpoint:** `GET /api/folders/{folderId}`
+
+**Example:**
+
+```bash
+curl -X GET http://localhost:8080/api/folders/2 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "folderId": 2,
+  "userId": 42,
+  "tags": [{"tagId": 3, "tagName": "client", "color": "#FF5733"}],
+  "name": "Client A",
+  "description": "Tasks for Client A project",
+  "color": "#10B981",
+  "icon": "user-tie",
+  "parentFolderId": 1,
+  "displayOrder": 1,
+  "isArchived": false,
+  "createdAt": "2026-03-13T10:05:00",
+  "updatedAt": "2026-03-13T10:05:00"
+}
+```
+
+**Error Response (404 Not Found):**
+
+```json
+{
+  "detail": "Folder not found"
+}
+```
+
+### Update a Folder
+
+**Endpoint:** `PUT /api/folders/{folderId}`
+
+**Request DTO:**
+
+```kotlin
+data class FolderUpdateDto(
+    val name: String? = null,
+    val description: String? = null,
+    val color: String? = null,
+    val icon: String? = null,
+    val displayOrder: Int? = null,
+    val isArchived: Boolean? = null
+)
+```
+
+<Note>
+You cannot update `parentFolderId` through this endpoint. Folder hierarchy is set at creation.
+</Note>
+
+**Example:**
+
+```bash
+curl -X PUT http://localhost:8080/api/folders/2 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Client A - Web Project",
+    "color": "#8B5CF6",
+    "description": "Updated description for Client A web development project"
+  }'
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "folderId": 2,
+  "userId": 42,
+  "tags": [{"tagId": 3, "tagName": "client", "color": "#FF5733"}],
+  "name": "Client A - Web Project",
+  "description": "Updated description for Client A web development project",
+  "color": "#8B5CF6",
+  "icon": "user-tie",
+  "parentFolderId": 1,
+  "displayOrder": 1,
+  "isArchived": false,
+  "createdAt": "2026-03-13T10:05:00",
+  "updatedAt": "2026-03-13T14:30:00"
+}
+```
+
+### Delete a Folder
+
+**Endpoint:** `DELETE /api/folders/{folderId}`
+
+**Example:**
+
+```bash
+curl -X DELETE http://localhost:8080/api/folders/2 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Response (204 No Content)**
+
+<Warning>
+Deleting a folder does NOT delete the tasks it contains. Tasks in deleted folders will have `folderId = null` (moved to root). Consider archiving folders instead of deleting them.
+</Warning>
+
+## Folder Hierarchy Patterns
+
+### Project-Based Organization
+
+```
+Work
+├── Client Projects
+│   ├── Client A
+│   │   ├── Phase 1
+│   │   └── Phase 2
+│   └── Client B
+└── Internal
+    ├── Team Building
+    └── Process Improvement
+
+Personal
+├── Home
+├── Health & Fitness
+└── Learning
+```
+
+### Time-Based Organization
+
+```
+2026
+├── Q1
+│   ├── January
+│   ├── February
+│   └── March
+└── Q2
+    ├── April
+    ├── May
+    └── June
+```
+
+### GTD (Getting Things Done) Style
+
+```
+Inbox (no folder)
+Next Actions
+Projects
+├── Active Projects
+└── On Hold
+Someday/Maybe
+Reference
+```
+
+## Working with Folder Hierarchies
+
+### Building a Folder Tree (Client-Side)
+
+```javascript
+// Fetch all folders
+const response = await fetch('http://localhost:8080/api/folders', {
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+const folders = await response.json();
+
+// Build tree structure
+function buildTree(folders, parentId = null) {
+  return folders
+    .filter(f => f.parentFolderId === parentId)
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map(folder => ({
+      ...folder,
+      children: buildTree(folders, folder.folderId)
+    }));
+}
+
+const tree = buildTree(folders);
+console.log(tree);
+```
+
+### Fetching Tasks in a Folder
+
+```bash
+# Get all tasks in a specific folder
+curl -X GET "http://localhost:8080/api/tasks?folderId=2" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Moving Tasks Between Folders
+
+```bash
+# Move task to a different folder
+curl -X PUT http://localhost:8080/api/tasks/42 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"folderId": 5}'
+
+# Move task to root (no folder)
+curl -X PUT http://localhost:8080/api/tasks/42 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"folderId": null}'
+```
+
+## Archiving Folders
+
+### Archive a Folder
+
+```bash
+curl -X PUT http://localhost:8080/api/folders/2 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"isArchived": true}'
+```
+
+<Info>
+Archiving a folder does NOT archive its tasks. You must archive tasks separately if needed.
+</Info>
+
+### Retrieve Archived Folders
+
+```bash
+curl -X GET "http://localhost:8080/api/folders?includeArchived=true" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Limit Nesting Depth" icon="layer-group">
+    Keep folder hierarchies 2-3 levels deep maximum. Deeper nesting becomes hard to navigate.
+  </Card>
+  
+  <Card title="Use Colors Consistently" icon="palette">
+    Assign colors by category or importance. Use the same color for related folders.
+  </Card>
+  
+  <Card title="Descriptive Names" icon="file-signature">
+    Use clear, specific folder names. "Q1 2026 Marketing" is better than "Marketing 1".
+  </Card>
+  
+  <Card title="Archive Completed Projects" icon="box-archive">
+    Archive folders for completed projects instead of deleting them.
+  </Card>
+  
+  <Card title="Use Display Order" icon="arrow-down-1-9">
+    Order folders by priority or frequency of use, not alphabetically.
+  </Card>
+  
+  <Card title="Combine with Tags" icon="tags">
+    Use folders for structure and tags for cross-cutting categories.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Tasks" icon="list-check" href="/concepts/tasks">
+    Learn how to organize tasks within folders
+  </Card>
+  <Card title="Tags" icon="tags" href="/concepts/tags">
+    Add flexible categorization with tags on folders
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    See folder creation in the Quick Start guide
+  </Card>
+</CardGroup>

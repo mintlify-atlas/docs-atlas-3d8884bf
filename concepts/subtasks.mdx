@@ -1,0 +1,687 @@
+---
+title: 'Subtasks'
+description: 'Break down complex tasks into manageable subtasks with automatic progress tracking'
+---
+
+## Overview
+
+Subtasks allow you to break down complex tasks into smaller, manageable pieces. The Task Pro API automatically calculates completion percentages based on subtask status, helping you track progress at a glance.
+
+## Subtask Model
+
+The Subtask entity is defined in `/src/main/kotlin/com/expozcode/task_pro_api/model/Subtask.kt`:
+
+```kotlin
+@Entity
+@Table(name = "subtasks")
+data class Subtask(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val subtaskId: Long? = null,
+    
+    var taskId: Long,                     // Required - parent task
+    var title: String,                    // Required, max 255 chars
+    var description: String? = null,
+    var durationTagId: Int? = null,
+    var status: Status = Status.PENDING,
+    var completedAt: LocalDateTime? = null,
+    var displayOrder: Int = 0,
+    var createdAt: LocalDateTime? = null,
+    var updatedAt: LocalDateTime? = null,
+    var tags: Set<Tag> = emptySet()
+)
+```
+
+## Subtask Properties
+
+### Core Fields
+
+<AccordionGroup>
+  <Accordion title="subtaskId (Long)">
+    Auto-generated unique identifier. Read-only.
+  </Accordion>
+  
+  <Accordion title="taskId (Long)">
+    **Required.** The ID of the parent task. Each subtask belongs to exactly one task.
+    
+    ```json
+    "taskId": 42
+    ```
+  </Accordion>
+  
+  <Accordion title="title (String)">
+    **Required.** The subtask's title (max 255 characters).
+    
+    ```json
+    "title": "Write unit tests for authentication"
+    ```
+  </Accordion>
+  
+  <Accordion title="description (String)">
+    **Optional.** Detailed description of the subtask.
+    
+    ```json
+    "description": "Cover all edge cases including special characters and rate limiting"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Status and Completion
+
+<AccordionGroup>
+  <Accordion title="status (String)">
+    Current state of the subtask. One of:
+    
+    - `pending` - Not started (default)
+    - `in_progress` - Being worked on
+    - `completed` - Finished
+    - `cancelled` - Abandoned
+    
+    ```json
+    "status": "in_progress"
+    ```
+  </Accordion>
+  
+  <Accordion title="completedAt (LocalDateTime)">
+    Automatically set when status changes to `completed`. Null for non-completed subtasks.
+    
+    ```json
+    "completedAt": "2026-03-13T16:30:00"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Organization
+
+<AccordionGroup>
+  <Accordion title="displayOrder (Int)">
+    Controls the visual ordering of subtasks within a task. Lower numbers appear first.
+    
+    ```json
+    "displayOrder": 0
+    ```
+    
+    <Tip>
+    Use displayOrder to show subtasks in the sequence they should be completed.
+    </Tip>
+  </Accordion>
+  
+  <Accordion title="durationTagId (Int)">
+    **Optional.** Custom field for tracking estimated duration or time category.
+    
+    ```json
+    "durationTagId": 3
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Timestamps
+
+<AccordionGroup>
+  <Accordion title="createdAt (LocalDateTime)">
+    Automatically set when created. Read-only.
+  </Accordion>
+  
+  <Accordion title="updatedAt (LocalDateTime)">
+    Automatically updated on modification. Read-only.
+  </Accordion>
+</AccordionGroup>
+
+### Relationships
+
+<Accordion title="tags (Set<Tag>)">
+  Many-to-many relationship. Subtasks can have multiple tags, independent of their parent task.
+  
+  ```json
+  "tags": [
+    {"tagId": 2, "tagName": "backend", "color": "#3B82F6"},
+    {"tagId": 5, "tagName": "testing", "color": "#10B981"}
+  ]
+  ```
+</Accordion>
+
+## Automatic Progress Tracking
+
+When you fetch tasks using `GET /api/tasks`, the API automatically includes subtask progress:
+
+```json
+{
+  "taskId": 42,
+  "title": "Implement authentication system",
+  "status": "in_progress",
+  "totalSubtasks": 5,
+  "completedSubtasks": 3,
+  "completionPercentage": 60.0,
+  ...
+}
+```
+
+<Note>
+The `completionPercentage` is calculated as: `(completedSubtasks / totalSubtasks) * 100`. Only subtasks with `status = "completed"` count toward completion.
+</Note>
+
+## API Operations
+
+### Create a Subtask
+
+**Endpoint:** `POST /api/subtasks`
+
+**Request DTO:**
+
+```kotlin
+data class SubtaskCreateDto(
+    val taskId: Long,
+    val title: String,
+    val description: String? = null,
+    val tagIds: List<Long>? = null,
+    val durationTagId: Int? = null,
+    val status: String = "pending",
+    val displayOrder: Int = 0
+)
+```
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:8080/api/subtasks \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "taskId": 42,
+    "title": "Design database schema",
+    "description": "Create ERD for authentication tables",
+    "status": "pending",
+    "displayOrder": 0,
+    "tagIds": [2, 3]
+  }'
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "subtaskId": 10,
+  "taskId": 42,
+  "tags": [
+    {"tagId": 2, "tagName": "backend", "color": "#3B82F6"},
+    {"tagId": 3, "tagName": "design", "color": "#8B5CF6"}
+  ],
+  "title": "Design database schema",
+  "description": "Create ERD for authentication tables",
+  "durationTagId": null,
+  "status": "pending",
+  "completedAt": null,
+  "displayOrder": 0,
+  "createdAt": "2026-03-13T10:00:00",
+  "updatedAt": "2026-03-13T10:00:00"
+}
+```
+
+### List Subtasks for a Task
+
+**Endpoint:** `GET /api/tasks/{taskId}/subtasks`
+
+**Example:**
+
+```bash
+curl -X GET http://localhost:8080/api/tasks/42/subtasks \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Response (200 OK):**
+
+```json
+[
+  {
+    "subtaskId": 10,
+    "taskId": 42,
+    "tags": [{"tagId": 2, "tagName": "backend", "color": "#3B82F6"}],
+    "title": "Design database schema",
+    "description": "Create ERD for authentication tables",
+    "durationTagId": null,
+    "status": "completed",
+    "completedAt": "2026-03-13T11:00:00",
+    "displayOrder": 0,
+    "createdAt": "2026-03-13T10:00:00",
+    "updatedAt": "2026-03-13T11:00:00"
+  },
+  {
+    "subtaskId": 11,
+    "taskId": 42,
+    "tags": [{"tagId": 2, "tagName": "backend", "color": "#3B82F6"}],
+    "title": "Implement user model",
+    "description": "Create User entity with JPA annotations",
+    "durationTagId": null,
+    "status": "in_progress",
+    "completedAt": null,
+    "displayOrder": 1,
+    "createdAt": "2026-03-13T10:05:00",
+    "updatedAt": "2026-03-13T10:30:00"
+  },
+  {
+    "subtaskId": 12,
+    "taskId": 42,
+    "tags": [{"tagId": 2, "tagName": "backend", "color": "#3B82F6"}],
+    "title": "Create authentication endpoints",
+    "description": "Build login and register API endpoints",
+    "durationTagId": null,
+    "status": "pending",
+    "completedAt": null,
+    "displayOrder": 2,
+    "createdAt": "2026-03-13T10:10:00",
+    "updatedAt": "2026-03-13T10:10:00"
+  }
+]
+```
+
+<Info>
+Subtasks are returned sorted by `displayOrder` ascending by default.
+</Info>
+
+### Update a Subtask
+
+**Endpoint:** `PUT /api/subtasks/{subtaskId}`
+
+**Request DTO:**
+
+```kotlin
+data class SubtaskUpdateDto(
+    val title: String? = null,
+    val description: String? = null,
+    val durationTagId: Int? = null,
+    val status: String? = null,
+    val displayOrder: Int? = null,
+    val tagIds: List<Long>? = null
+)
+```
+
+**Example - Mark as Completed:**
+
+```bash
+curl -X PUT http://localhost:8080/api/subtasks/11 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "completed"
+  }'
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "subtaskId": 11,
+  "taskId": 42,
+  "tags": [{"tagId": 2, "tagName": "backend", "color": "#3B82F6"}],
+  "title": "Implement user model",
+  "description": "Create User entity with JPA annotations",
+  "durationTagId": null,
+  "status": "completed",
+  "completedAt": "2026-03-13T15:45:00",
+  "displayOrder": 1,
+  "createdAt": "2026-03-13T10:05:00",
+  "updatedAt": "2026-03-13T15:45:00"
+}
+```
+
+**Example - Update Multiple Fields:**
+
+```bash
+curl -X PUT http://localhost:8080/api/subtasks/12 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Create auth endpoints with JWT",
+    "status": "in_progress",
+    "tagIds": [2, 5]
+  }'
+```
+
+### Delete a Subtask
+
+**Endpoint:** `DELETE /api/subtasks/{subtaskId}`
+
+**Example:**
+
+```bash
+curl -X DELETE http://localhost:8080/api/subtasks/12 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Response (204 No Content)**
+
+<Warning>
+Deleting a subtask immediately affects the parent task's completion percentage.
+</Warning>
+
+## Working with Subtasks
+
+### Creating a Task Breakdown
+
+<Steps>
+  <Step title="Create the parent task">
+    ```bash
+    POST /api/tasks
+    {
+      "title": "Implement authentication system",
+      "description": "Build complete JWT-based auth",
+      "priority": 8,
+      "status": "pending"
+    }
+    ```
+    
+    Response includes `taskId: 42`.
+  </Step>
+  
+  <Step title="Break down into subtasks">
+    Create subtasks in logical order:
+    
+    ```bash
+    # Subtask 1
+    POST /api/subtasks
+    {
+      "taskId": 42,
+      "title": "Design database schema",
+      "displayOrder": 0
+    }
+    
+    # Subtask 2
+    POST /api/subtasks
+    {
+      "taskId": 42,
+      "title": "Implement user model",
+      "displayOrder": 1
+    }
+    
+    # Subtask 3
+    POST /api/subtasks
+    {
+      "taskId": 42,
+      "title": "Create authentication endpoints",
+      "displayOrder": 2
+    }
+    
+    # Subtask 4
+    POST /api/subtasks
+    {
+      "taskId": 42,
+      "title": "Write unit tests",
+      "displayOrder": 3
+    }
+    
+    # Subtask 5
+    POST /api/subtasks
+    {
+      "taskId": 42,
+      "title": "Integration testing",
+      "displayOrder": 4
+    }
+    ```
+  </Step>
+  
+  <Step title="Track progress">
+    As you complete subtasks, update their status:
+    
+    ```bash
+    PUT /api/subtasks/10
+    {"status": "completed"}
+    ```
+    
+    Then fetch the parent task to see updated progress:
+    
+    ```bash
+    GET /api/tasks/42
+    ```
+    
+    Response shows:
+    ```json
+    {
+      "totalSubtasks": 5,
+      "completedSubtasks": 1,
+      "completionPercentage": 20.0
+    }
+    ```
+  </Step>
+  
+  <Step title="Complete the task">
+    When all subtasks are done, mark the parent task as completed:
+    
+    ```bash
+    PUT /api/tasks/42
+    {"status": "completed"}
+    ```
+  </Step>
+</Steps>
+
+### Reordering Subtasks
+
+Update `displayOrder` to change subtask sequence:
+
+```bash
+# Move subtask to top of list
+curl -X PUT http://localhost:8080/api/subtasks/12 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"displayOrder": 0}'
+
+# Move another subtask down
+curl -X PUT http://localhost:8080/api/subtasks/10 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"displayOrder": 1}'
+```
+
+<Tip>
+Use increments of 10 for display order (0, 10, 20, 30...) to make it easier to insert items later.
+</Tip>
+
+### Progress Visualization Example
+
+```javascript
+// Fetch task with subtasks
+const taskResponse = await fetch('http://localhost:8080/api/tasks/42', {
+  headers: { 'Authorization': `Bearer ${token}` }
+});
+const task = await taskResponse.json();
+
+// Display progress
+const progressBar = document.getElementById('progress');
+progressBar.style.width = `${task.completionPercentage || 0}%`;
+progressBar.textContent = `${task.completedSubtasks}/${task.totalSubtasks} complete`;
+
+// Fetch detailed subtask list
+const subtasksResponse = await fetch(
+  `http://localhost:8080/api/tasks/42/subtasks`,
+  { headers: { 'Authorization': `Bearer ${token}` } }
+);
+const subtasks = await subtasksResponse.json();
+
+// Render subtask list
+subtasks.forEach(subtask => {
+  const li = document.createElement('li');
+  li.className = subtask.status === 'completed' ? 'completed' : '';
+  li.textContent = subtask.title;
+  document.getElementById('subtask-list').appendChild(li);
+});
+```
+
+## Subtask Patterns
+
+### Sequential Workflow
+
+Use subtasks for tasks that must be completed in order:
+
+```json
+[
+  {"title": "1. Research requirements", "displayOrder": 0},
+  {"title": "2. Design solution", "displayOrder": 1},
+  {"title": "3. Implement code", "displayOrder": 2},
+  {"title": "4. Write tests", "displayOrder": 3},
+  {"title": "5. Deploy to staging", "displayOrder": 4},
+  {"title": "6. Get approval", "displayOrder": 5},
+  {"title": "7. Deploy to production", "displayOrder": 6}
+]
+```
+
+### Parallel Workflow
+
+Use subtasks for independent work that can be done in any order:
+
+```json
+[
+  {"title": "Design homepage mockup", "displayOrder": 0},
+  {"title": "Design about page mockup", "displayOrder": 1},
+  {"title": "Design contact page mockup", "displayOrder": 2},
+  {"title": "Design pricing page mockup", "displayOrder": 3}
+]
+```
+
+### Checklist Pattern
+
+Use subtasks as a checklist for quality assurance:
+
+```json
+[
+  {"title": "Code review completed", "displayOrder": 0},
+  {"title": "Unit tests passing", "displayOrder": 1},
+  {"title": "Integration tests passing", "displayOrder": 2},
+  {"title": "Documentation updated", "displayOrder": 3},
+  {"title": "Stakeholder approval received", "displayOrder": 4}
+]
+```
+
+### Multi-Person Assignment
+
+Use subtasks to divide work among team members (track with tags):
+
+```json
+[
+  {
+    "title": "Frontend implementation",
+    "tagIds": [3],  // "frontend" tag
+    "displayOrder": 0
+  },
+  {
+    "title": "Backend API",
+    "tagIds": [2],  // "backend" tag
+    "displayOrder": 1
+  },
+  {
+    "title": "Database migrations",
+    "tagIds": [2],  // "backend" tag
+    "displayOrder": 2
+  },
+  {
+    "title": "UI/UX design",
+    "tagIds": [5],  // "design" tag
+    "displayOrder": 3
+  }
+]
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Aim for 3-7 Subtasks" icon="list">
+    Too few subtasks defeat the purpose. Too many become overwhelming. 3-7 is the sweet spot.
+  </Card>
+  
+  <Card title="Make Subtasks Atomic" icon="atom">
+    Each subtask should be completable in one work session (1-4 hours max).
+  </Card>
+  
+  <Card title="Use Clear, Actionable Titles" icon="pen">
+    Start with verbs: "Write", "Test", "Deploy", "Review". Make it clear what "done" means.
+  </Card>
+  
+  <Card title="Track Dependencies with Order" icon="arrow-down-1-9">
+    Use `displayOrder` to show the recommended sequence, even if work can be parallel.
+  </Card>
+  
+  <Card title="Tag Subtasks Independently" icon="tags">
+    Use tags to show which subtasks belong to which team member or work category.
+  </Card>
+  
+  <Card title="Update Status Frequently" icon="arrows-rotate">
+    Change subtask status as you work to keep the progress percentage accurate.
+  </Card>
+</CardGroup>
+
+## Progress Calculation Details
+
+The API calculates task completion using this logic:
+
+```kotlin
+val totalSubtasks = task.subtasks.size
+val completedSubtasks = task.subtasks.count { it.status == Status.COMPLETED }
+val completionPercentage = if (totalSubtasks > 0) {
+    (completedSubtasks.toDouble() / totalSubtasks) * 100
+} else {
+    null
+}
+```
+
+<Note>
+- Only `status = "completed"` subtasks count as done
+- Tasks with 0 subtasks return `completionPercentage: null`
+- Percentage is always 0-100 (inclusive)
+- Cancelled subtasks count as incomplete
+</Note>
+
+## Subtask Lifecycle Example
+
+<Steps>
+  <Step title="Created (pending)">
+    ```json
+    {"status": "pending", "completedAt": null}
+    ```
+    
+    Task progress: 0% (0/5 complete)
+  </Step>
+  
+  <Step title="Started (in_progress)">
+    ```json
+    {"status": "in_progress", "completedAt": null}
+    ```
+    
+    Task progress: 0% (0/5 complete)
+  </Step>
+  
+  <Step title="Completed">
+    ```json
+    {"status": "completed", "completedAt": "2026-03-13T15:00:00"}
+    ```
+    
+    Task progress: 20% (1/5 complete)
+  </Step>
+  
+  <Step title="Reopened (if needed)">
+    ```json
+    {"status": "in_progress", "completedAt": null}
+    ```
+    
+    Task progress: 0% (0/5 complete) - back to incomplete
+  </Step>
+  
+  <Step title="Cancelled (if abandoned)">
+    ```json
+    {"status": "cancelled", "completedAt": null}
+    ```
+    
+    Task progress: 0% (0/5 complete) - counts as incomplete
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Tasks" icon="list-check" href="/concepts/tasks">
+    Learn more about parent task management
+  </Card>
+  <Card title="Tags" icon="tags" href="/concepts/tags">
+    Use tags to categorize and filter subtasks
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    See subtasks in action in the Quick Start guide
+  </Card>
+</CardGroup>

@@ -1,0 +1,114 @@
+---
+title: "Register User"
+description: "Create a new user account"
+---
+
+## POST /api/auth/register
+
+Creates a new user account with the provided credentials.
+
+### Authentication
+
+No authentication required.
+
+### Request Body
+
+<ParamField body="username" type="string" required>
+  Unique username for the account
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  User's email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password (will be hashed)
+</ParamField>
+
+<ParamField body="fullName" type="string">
+  User's full name (optional)
+</ParamField>
+
+### Response
+
+<ResponseField name="userId" type="integer">
+  Unique identifier for the user
+</ResponseField>
+
+<ResponseField name="username" type="string">
+  Username of the registered user
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  Email address of the registered user
+</ResponseField>
+
+<ResponseField name="fullName" type="string" nullable>
+  Full name of the user
+</ResponseField>
+
+<ResponseField name="avatarUrl" type="string" nullable>
+  URL to the user's avatar image
+</ResponseField>
+
+<ResponseField name="isActive" type="boolean">
+  Whether the user account is active
+</ResponseField>
+
+<ResponseField name="emailVerified" type="boolean">
+  Whether the user's email has been verified
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  Timestamp when the account was created (ISO 8601 format)
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST https://api.taskpro.com/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "johndoe",
+    "email": "john.doe@example.com",
+    "password": "securePassword123",
+    "fullName": "John Doe"
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "userId": 1,
+  "username": "johndoe",
+  "email": "john.doe@example.com",
+  "fullName": "John Doe",
+  "avatarUrl": null,
+  "isActive": true,
+  "emailVerified": false,
+  "createdAt": "2026-03-13T10:30:00"
+}
+```
+
+### Status Codes
+
+<ResponseField name="201" type="Created">
+  User successfully registered
+</ResponseField>
+
+<ResponseField name="400" type="Bad Request">
+  Invalid request body or missing required fields
+</ResponseField>
+
+<ResponseField name="409" type="Conflict">
+  Username or email already exists
+</ResponseField>
+
+### Error Response Example
+
+```json
+{
+  "detail": "Username already exists"
+}
+```

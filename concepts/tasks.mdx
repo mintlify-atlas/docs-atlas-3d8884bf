@@ -1,0 +1,575 @@
+---
+title: 'Tasks'
+description: 'Understanding the Task model, statuses, priorities, and lifecycle management'
+---
+
+## Overview
+
+Tasks are the core entities in Task Pro API. Each task belongs to a user and can be organized with folders, tags, priorities, due dates, and subtasks.
+
+## Task Model
+
+The Task entity is defined in `/src/main/kotlin/com/expozcode/task_pro_api/model/Task.kt`:
+
+```kotlin
+@Entity
+@Table(name = "tasks")
+data class Task(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val taskId: Long? = null,
+    
+    var userId: Long,
+    var folderId: Long? = null,
+    var title: String,              // Required, max 255 chars
+    var description: String? = null,
+    var durationTagId: Int? = null,
+    var priority: Int = 0,
+    var status: Status = Status.PENDING,
+    var dueDate: LocalDate? = null,
+    var dueTime: LocalTime? = null,
+    var completedAt: LocalDateTime? = null,
+    var displayOrder: Int = 0,
+    var isArchived: Boolean = false,
+    var createdAt: LocalDateTime? = null,
+    var updatedAt: LocalDateTime? = null,
+    var tags: Set<Tag> = emptySet(),
+    var subtasks: Set<Subtask> = emptySet()
+)
+```
+
+## Task Properties
+
+### Core Fields
+
+<AccordionGroup>
+  <Accordion title="taskId (Long)">
+    Auto-generated unique identifier for the task. Read-only.
+  </Accordion>
+  
+  <Accordion title="userId (Long)">
+    The ID of the user who owns this task. Tasks are isolated per user.
+  </Accordion>
+  
+  <Accordion title="title (String)">
+    **Required.** The task's title (max 255 characters). This is the primary display name.
+    
+    ```json
+    "title": "Implement authentication system"
+    ```
+  </Accordion>
+  
+  <Accordion title="description (String)">
+    **Optional.** Detailed description of the task. Stored as text with no length limit.
+    
+    ```json
+    "description": "Implement JWT-based authentication with refresh tokens and secure password hashing using bcrypt."
+    ```
+  </Accordion>
+  
+  <Accordion title="folderId (Long)">
+    **Optional.** ID of the folder containing this task. Null means the task is at the root level.
+    
+    ```json
+    "folderId": 5
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Status Management
+
+<Accordion title="status (String)">
+  The current state of the task. One of:
+  
+  - `pending` - Task hasn't been started yet (default)
+  - `in_progress` - Task is actively being worked on
+  - `completed` - Task has been finished
+  - `cancelled` - Task was abandoned or is no longer needed
+  
+  The status enum is defined in `/src/main/kotlin/com/expozcode/task_pro_api/model/Status.kt`:
+  
+  ```kotlin
+  enum class Status(val value: String) {
+      PENDING("pending"),
+      IN_PROGRESS("in_progress"),
+      COMPLETED("completed"),
+      CANCELLED("cancelled")
+  }
+  ```
+</Accordion>
+
+### Priority and Ordering
+
+<Accordion title="priority (Int)">
+  Integer value indicating task importance (default: 0). Higher numbers = higher priority.
+  
+  ```json
+  "priority": 5  // High priority task
+  ```
+  
+  <Tip>
+  Use a consistent priority scale across your app (e.g., 0-10) for better task management.
+  </Tip>
+</Accordion>
+
+<Accordion title="displayOrder (Int)">
+  Controls the visual ordering of tasks within a folder or list. Lower numbers appear first.
+  
+  ```json
+  "displayOrder": 10
+  ```
+</Accordion>
+
+### Due Dates and Time
+
+<Accordion title="dueDate (LocalDate)">
+  **Optional.** The date when the task should be completed.
+  
+  ```json
+  "dueDate": "2026-03-20"
+  ```
+  
+  Format: ISO 8601 date string (YYYY-MM-DD)
+</Accordion>
+
+<Accordion title="dueTime (LocalTime)">
+  **Optional.** Specific time when the task is due (works with dueDate).
+  
+  ```json
+  "dueTime": "14:30:00"
+  ```
+  
+  Format: ISO 8601 time string (HH:mm:ss)
+</Accordion>
+
+### Timestamps
+
+<AccordionGroup>
+  <Accordion title="createdAt (LocalDateTime)">
+    Automatically set when the task is created. Read-only.
+    
+    ```json
+    "createdAt": "2026-03-13T10:30:00"
+    ```
+  </Accordion>
+  
+  <Accordion title="updatedAt (LocalDateTime)">
+    Automatically updated whenever the task is modified. Read-only.
+    
+    ```json
+    "updatedAt": "2026-03-13T15:45:00"
+    ```
+  </Accordion>
+  
+  <Accordion title="completedAt (LocalDateTime)">
+    Set when the task status changes to `completed`. Null for non-completed tasks.
+    
+    ```json
+    "completedAt": "2026-03-13T16:00:00"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Archive Flag
+
+<Accordion title="isArchived (Boolean)">
+  Mark tasks as archived without deleting them (default: false).
+  
+  ```json
+  "isArchived": true
+  ```
+  
+  <Info>
+  Archived tasks are excluded from default queries unless `includeArchived=true` is specified.
+  </Info>
+</Accordion>
+
+### Relationships
+
+<AccordionGroup>
+  <Accordion title="tags (Set<Tag>)">
+    Many-to-many relationship with tags. Tasks can have multiple tags.
+    
+    ```json
+    "tags": [
+      {"tagId": 1, "tagName": "urgent", "color": "#FF0000"},
+      {"tagId": 3, "tagName": "backend", "color": "#0000FF"}
+    ]
+    ```
+  </Accordion>
+  
+  <Accordion title="subtasks (Set<Subtask>)">
+    One-to-many relationship. Tasks can contain multiple subtasks for breaking down work.
+    
+    When fetching tasks, the API includes progress metrics:
+    
+    ```json
+    "totalSubtasks": 5,
+    "completedSubtasks": 3,
+    "completionPercentage": 60.0
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## API Operations
+
+### Create a Task
+
+**Endpoint:** `POST /api/tasks`
+
+**Request DTO:**
+
+```kotlin
+data class TaskCreateDto(
+    val title: String,
+    val description: String? = null,
+    val folderId: Long? = null,
+    val tagIds: List<Long>? = null,
+    val durationTagId: Int? = null,
+    val priority: Int = 0,
+    val status: String = "pending",
+    val dueDate: LocalDate? = null,
+    val dueTime: LocalTime? = null,
+    val displayOrder: Int = 0
+)
+```
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:8080/api/tasks \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Design database schema",
+    "description": "Create ERD for user, task, and folder tables",
+    "priority": 8,
+    "status": "pending",
+    "dueDate": "2026-03-15",
+    "tagIds": [1, 3]
+  }'
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "taskId": 42,
+  "userId": 1,
+  "folderId": null,
+  "tags": [
+    {"tagId": 1, "tagName": "urgent", "color": "#FF0000"},
+    {"tagId": 3, "tagName": "design", "color": "#00FF00"}
+  ],
+  "title": "Design database schema",
+  "description": "Create ERD for user, task, and folder tables",
+  "durationTagId": null,
+  "priority": 8,
+  "status": "pending",
+  "dueDate": "2026-03-15",
+  "dueTime": null,
+  "completedAt": null,
+  "displayOrder": 0,
+  "isArchived": false,
+  "createdAt": "2026-03-13T10:30:00",
+  "updatedAt": "2026-03-13T10:30:00"
+}
+```
+
+### List Tasks
+
+**Endpoint:** `GET /api/tasks`
+
+**Query Parameters:**
+
+- `folderId` (optional) - Filter by folder ID
+- `status` (optional) - Filter by status (`pending`, `in_progress`, `completed`, `cancelled`)
+- `includeArchived` (optional, default: false) - Include archived tasks
+
+**Example:**
+
+```bash
+# Get all in-progress tasks
+curl -X GET "http://localhost:8080/api/tasks?status=in_progress" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Get tasks in a specific folder
+curl -X GET "http://localhost:8080/api/tasks?folderId=5" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Get all tasks including archived
+curl -X GET "http://localhost:8080/api/tasks?includeArchived=true" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Response (200 OK):**
+
+```json
+[
+  {
+    "taskId": 42,
+    "userId": 1,
+    "folderId": null,
+    "tags": [{"tagId": 1, "tagName": "urgent", "color": "#FF0000"}],
+    "title": "Design database schema",
+    "description": "Create ERD for user, task, and folder tables",
+    "durationTagId": null,
+    "priority": 8,
+    "status": "in_progress",
+    "dueDate": "2026-03-15",
+    "dueTime": null,
+    "completedAt": null,
+    "displayOrder": 0,
+    "isArchived": false,
+    "createdAt": "2026-03-13T10:30:00",
+    "updatedAt": "2026-03-13T11:00:00",
+    "totalSubtasks": 3,
+    "completedSubtasks": 1,
+    "completionPercentage": 33.33
+  }
+]
+```
+
+<Note>
+The list endpoint returns `TaskWithProgressDto` which includes subtask progress metrics.
+</Note>
+
+### Get a Single Task
+
+**Endpoint:** `GET /api/tasks/{taskId}`
+
+**Example:**
+
+```bash
+curl -X GET http://localhost:8080/api/tasks/42 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "taskId": 42,
+  "userId": 1,
+  "folderId": null,
+  "tags": [{"tagId": 1, "tagName": "urgent", "color": "#FF0000"}],
+  "title": "Design database schema",
+  "description": "Create ERD for user, task, and folder tables",
+  "durationTagId": null,
+  "priority": 8,
+  "status": "in_progress",
+  "dueDate": "2026-03-15",
+  "dueTime": null,
+  "completedAt": null,
+  "displayOrder": 0,
+  "isArchived": false,
+  "createdAt": "2026-03-13T10:30:00",
+  "updatedAt": "2026-03-13T11:00:00"
+}
+```
+
+**Error Response (404 Not Found):**
+
+```json
+{
+  "detail": "Task not found"
+}
+```
+
+### Update a Task
+
+**Endpoint:** `PUT /api/tasks/{taskId}`
+
+**Request DTO:**
+
+```kotlin
+data class TaskUpdateDto(
+    val title: String? = null,
+    val description: String? = null,
+    val folderId: Long? = null,
+    val tagIds: List<Long>? = null,
+    val durationTagId: Int? = null,
+    val priority: Int? = null,
+    val status: String? = null,
+    val dueDate: LocalDate? = null,
+    val dueTime: LocalTime? = null,
+    val displayOrder: Int? = null,
+    val isArchived: Boolean? = null
+)
+```
+
+<Info>
+All fields are optional. Only include the fields you want to update.
+</Info>
+
+**Example:**
+
+```bash
+# Mark task as completed
+curl -X PUT http://localhost:8080/api/tasks/42 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "completed"
+  }'
+
+# Update multiple fields
+curl -X PUT http://localhost:8080/api/tasks/42 \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Database schema completed",
+    "status": "completed",
+    "priority": 10,
+    "isArchived": false
+  }'
+```
+
+**Response (200 OK):**
+
+```json
+{
+  "taskId": 42,
+  "userId": 1,
+  "folderId": null,
+  "tags": [{"tagId": 1, "tagName": "urgent", "color": "#FF0000"}],
+  "title": "Database schema completed",
+  "description": "Create ERD for user, task, and folder tables",
+  "durationTagId": null,
+  "priority": 10,
+  "status": "completed",
+  "dueDate": "2026-03-15",
+  "dueTime": null,
+  "completedAt": "2026-03-13T16:30:00",
+  "displayOrder": 0,
+  "isArchived": false,
+  "createdAt": "2026-03-13T10:30:00",
+  "updatedAt": "2026-03-13T16:30:00"
+}
+```
+
+### Delete a Task
+
+**Endpoint:** `DELETE /api/tasks/{taskId}`
+
+**Example:**
+
+```bash
+curl -X DELETE http://localhost:8080/api/tasks/42 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Response (204 No Content)**
+
+<Warning>
+Deleting a task will also delete all associated subtasks (cascade delete). This operation cannot be undone. Consider archiving instead.
+</Warning>
+
+## Task Lifecycle Workflows
+
+### Creating a Complete Task
+
+<Steps>
+  <Step title="Create the task">
+    ```bash
+    POST /api/tasks
+    ```
+    With title, description, priority, and due date.
+  </Step>
+  
+  <Step title="Add tags">
+    Include `tagIds` in the creation request, or update later:
+    ```bash
+    PUT /api/tasks/42
+    {"tagIds": [1, 3, 5]}
+    ```
+  </Step>
+  
+  <Step title="Organize in folder">
+    Move to a folder:
+    ```bash
+    PUT /api/tasks/42
+    {"folderId": 7}
+    ```
+  </Step>
+  
+  <Step title="Add subtasks">
+    Break down the work:
+    ```bash
+    POST /api/subtasks
+    {"taskId": 42, "title": "Step 1"}
+    ```
+  </Step>
+</Steps>
+
+### Completing a Task
+
+<Steps>
+  <Step title="Mark as in progress">
+    ```bash
+    PUT /api/tasks/42
+    {"status": "in_progress"}
+    ```
+  </Step>
+  
+  <Step title="Complete subtasks">
+    Update each subtask status to `completed`.
+  </Step>
+  
+  <Step title="Mark task as completed">
+    ```bash
+    PUT /api/tasks/42
+    {"status": "completed"}
+    ```
+    The `completedAt` timestamp is automatically set.
+  </Step>
+  
+  <Step title="Archive (optional)">
+    ```bash
+    PUT /api/tasks/42
+    {"isArchived": true}
+    ```
+  </Step>
+</Steps>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Descriptive Titles" icon="text">
+    Keep titles concise (under 50 chars) but descriptive enough to understand at a glance.
+  </Card>
+  
+  <Card title="Set Priorities Consistently" icon="arrow-up-1-9">
+    Define a priority scale (e.g., 1-10) and use it consistently across all tasks.
+  </Card>
+  
+  <Card title="Use Due Dates Wisely" icon="calendar">
+    Only set due dates when there's a real deadline. Not every task needs one.
+  </Card>
+  
+  <Card title="Archive, Don't Delete" icon="box-archive">
+    Archive completed tasks instead of deleting them to maintain historical data.
+  </Card>
+  
+  <Card title="Break Down Large Tasks" icon="list">
+    Use subtasks for tasks that take more than a few hours. Aim for 3-7 subtasks per task.
+  </Card>
+  
+  <Card title="Filter by Status" icon="filter">
+    Use status filters to create views like "Today's tasks" or "In Progress" lists.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Subtasks" icon="list-check" href="/concepts/subtasks">
+    Learn how to break down tasks with subtasks and track progress
+  </Card>
+  <Card title="Folders" icon="folder" href="/concepts/folders">
+    Organize tasks with hierarchical folder structures
+  </Card>
+  <Card title="Tags" icon="tags" href="/concepts/tags">
+    Add flexible categorization with color-coded tags
+  </Card>
+</CardGroup>

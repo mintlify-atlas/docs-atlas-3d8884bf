@@ -1,0 +1,503 @@
+---
+title: 'Environment Variables'
+description: 'Configure Task Pro API with environment variables for different deployment scenarios'
+---
+
+## Overview
+
+Task Pro API uses environment variables for configuration, allowing you to adapt the application to different environments (development, staging, production) without changing code.
+
+## Required Variables
+
+### Database Configuration
+
+<ParamField path="SPRING_DATASOURCE_URL" type="string" required>
+  JDBC connection URL for PostgreSQL database.
+  
+  **Format:** `jdbc:postgresql://<host>:<port>/<database_name>`
+  
+  **Examples:**
+  ```bash
+  # Local development
+  SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/task_pro_db
+  
+  # Docker Compose
+  SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/task_pro_db
+  
+  # Cloud database
+  SPRING_DATASOURCE_URL=jdbc:postgresql://mydb.example.com:5432/task_pro_production
+  ```
+</ParamField>
+
+<ParamField path="SPRING_DATASOURCE_USERNAME" type="string" required>
+  Database username for authentication.
+  
+  **Example:**
+  ```bash
+  SPRING_DATASOURCE_USERNAME=task_pro_user
+  ```
+  
+  <Warning>
+  Never commit credentials to version control. Use secrets management in production.
+  </Warning>
+</ParamField>
+
+<ParamField path="SPRING_DATASOURCE_PASSWORD" type="string" required>
+  Database password for authentication.
+  
+  **Example:**
+  ```bash
+  SPRING_DATASOURCE_PASSWORD=secure_password_here
+  ```
+  
+  <Warning>
+  Use strong, randomly generated passwords in production environments.
+  </Warning>
+</ParamField>
+
+### Database Schema Management
+
+<ParamField path="SPRING_JPA_HBM2DDL" type="string" default="none">
+  Controls how Hibernate manages the database schema.
+  
+  **Options:**
+  
+  - `validate` - Validate schema, make no changes (recommended for production)
+  - `update` - Update schema if needed (development only)
+  - `create` - Drop and recreate schema on startup (testing only)
+  - `create-drop` - Drop schema on shutdown (testing only)
+  - `none` - Do nothing (use with Flyway migrations)
+  
+  **Examples:**
+  ```bash
+  # Production (with Flyway)
+  SPRING_JPA_HBM2DDL=validate
+  
+  # Development
+  SPRING_JPA_HBM2DDL=update
+  
+  # Testing
+  SPRING_JPA_HBM2DDL=create-drop
+  ```
+  
+  <Note>
+  The source code includes Flyway (version 9.20.0) for production-ready database migrations. Use `validate` with Flyway in production.
+  </Note>
+</ParamField>
+
+## Security Configuration
+
+### CORS (Cross-Origin Resource Sharing)
+
+<ParamField path="APP_CORS_ALLOWED_ORIGINS" type="string">
+  Comma-separated list of allowed origins for CORS requests.
+  
+  **Examples:**
+  ```bash
+  # Single origin
+  APP_CORS_ALLOWED_ORIGINS=https://app.example.com
+  
+  # Multiple origins
+  APP_CORS_ALLOWED_ORIGINS=https://app.example.com,https://staging.example.com
+  
+  # Development (localhost)
+  APP_CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
+  
+  # Allow all (NOT recommended for production)
+  APP_CORS_ALLOWED_ORIGINS=*
+  ```
+  
+  <Warning>
+  Using `*` (allow all origins) in production is a security risk. Always specify explicit origins for production deployments.
+  </Warning>
+  
+  <Info>
+  If you use `*`, you cannot use cookies or credentials in requests. List specific origins for session-based authentication.
+  </Info>
+</ParamField>
+
+## Application Profile
+
+<ParamField path="SPRING_PROFILES_ACTIVE" type="string" default="dev">
+  Activates a Spring profile to load environment-specific configuration.
+  
+  **Options:**
+  
+  - `dev` - Development profile (verbose logging, auto-schema updates)
+  - `prod` - Production profile (optimized for performance and security)
+  
+  **Example:**
+  ```bash
+  # Development
+  SPRING_PROFILES_ACTIVE=dev
+  
+  # Production
+  SPRING_PROFILES_ACTIVE=prod
+  ```
+</ParamField>
+
+## Java/JVM Configuration
+
+<ParamField path="JAVA_TOOL_OPTIONS" type="string">
+  JVM options for memory management and performance tuning.
+  
+  **Default (from Dockerfile):**
+  ```bash
+  JAVA_TOOL_OPTIONS="-Xms256m -Xmx512m"
+  ```
+  
+  **Options:**
+  
+  - `-Xms<size>` - Initial heap size
+  - `-Xmx<size>` - Maximum heap size
+  
+  **Production recommendations:**
+  ```bash
+  # Small instance (1GB RAM)
+  JAVA_TOOL_OPTIONS="-Xms256m -Xmx512m"
+  
+  # Medium instance (2GB RAM)
+  JAVA_TOOL_OPTIONS="-Xms512m -Xmx1g"
+  
+  # Large instance (4GB+ RAM)
+  JAVA_TOOL_OPTIONS="-Xms1g -Xmx2g"
+  ```
+  
+  <Tip>
+  Set `-Xms` equal to `-Xmx` in production to avoid heap resizing overhead.
+  </Tip>
+</ParamField>
+
+## Configuration by Environment
+
+### Local Development
+
+```bash
+# .env.development
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/task_pro_db
+SPRING_DATASOURCE_USERNAME=task_pro_user
+SPRING_DATASOURCE_PASSWORD=task_pro_pass
+SPRING_JPA_HBM2DDL=update
+APP_CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
+SPRING_PROFILES_ACTIVE=dev
+```
+
+### Docker Compose (Local)
+
+From `/workspace/source/README_DEPLOY.md`, the default Docker Compose values are:
+
+```yaml
+# docker-compose.yml
+environment:
+  POSTGRES_DB: task_pro_db
+  POSTGRES_USER: task_pro_user
+  POSTGRES_PASSWORD: task_pro_pass
+  SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/task_pro_db
+  SPRING_DATASOURCE_USERNAME: task_pro_user
+  SPRING_DATASOURCE_PASSWORD: task_pro_pass
+  SPRING_JPA_HBM2DDL: update
+  APP_CORS_ALLOWED_ORIGINS: http://localhost:3000
+  SPRING_PROFILES_ACTIVE: dev
+```
+
+### Staging Environment
+
+```bash
+# .env.staging
+SPRING_DATASOURCE_URL=jdbc:postgresql://staging-db.example.com:5432/task_pro_staging
+SPRING_DATASOURCE_USERNAME=task_pro_staging_user
+SPRING_DATASOURCE_PASSWORD=<strong_random_password>
+SPRING_JPA_HBM2DDL=validate
+APP_CORS_ALLOWED_ORIGINS=https://staging.myapp.com
+SPRING_PROFILES_ACTIVE=prod
+JAVA_TOOL_OPTIONS="-Xms512m -Xmx1g"
+```
+
+### Production Environment
+
+```bash
+# .env.production
+SPRING_DATASOURCE_URL=jdbc:postgresql://prod-db.example.com:5432/task_pro_production
+SPRING_DATASOURCE_USERNAME=task_pro_prod_user
+SPRING_DATASOURCE_PASSWORD=<very_strong_random_password>
+SPRING_JPA_HBM2DDL=validate
+APP_CORS_ALLOWED_ORIGINS=https://app.myapp.com,https://www.myapp.com
+SPRING_PROFILES_ACTIVE=prod
+JAVA_TOOL_OPTIONS="-Xms1g -Xmx2g"
+```
+
+<Warning>
+**Production Security Checklist:**
+
+- Use `SPRING_PROFILES_ACTIVE=prod`
+- Set `SPRING_JPA_HBM2DDL=validate` (never `update` or `create`)
+- Use strong, randomly generated database passwords
+- Specify exact CORS origins (never use `*`)
+- Store secrets in environment-specific secret managers (AWS Secrets Manager, HashiCorp Vault, etc.)
+- Use SSL/TLS for database connections
+- Enable connection pooling for better performance
+</Warning>
+
+## Setting Environment Variables
+
+### Local Development (Unix/Linux/macOS)
+
+```bash
+# Export for current shell session
+export SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/task_pro_db"
+export SPRING_DATASOURCE_USERNAME="task_pro_user"
+export SPRING_DATASOURCE_PASSWORD="task_pro_pass"
+
+# Run application
+./gradlew bootRun
+```
+
+### Local Development (Windows)
+
+```powershell
+# PowerShell
+$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/task_pro_db"
+$env:SPRING_DATASOURCE_USERNAME="task_pro_user"
+$env:SPRING_DATASOURCE_PASSWORD="task_pro_pass"
+
+# Run application
+.\gradlew.bat bootRun
+```
+
+### Using .env Files
+
+Create a `.env` file in your project root:
+
+```bash
+# .env
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/task_pro_db
+SPRING_DATASOURCE_USERNAME=task_pro_user
+SPRING_DATASOURCE_PASSWORD=task_pro_pass
+SPRING_JPA_HBM2DDL=update
+APP_CORS_ALLOWED_ORIGINS=http://localhost:3000
+SPRING_PROFILES_ACTIVE=dev
+```
+
+Then load it before running:
+
+```bash
+# Load and run
+export $(cat .env | xargs) && ./gradlew bootRun
+```
+
+<Note>
+Add `.env` to your `.gitignore` to prevent committing secrets to version control.
+</Note>
+
+### Docker
+
+```bash
+# Pass environment variables with -e flag
+docker run -d \
+  -e SPRING_DATASOURCE_URL="jdbc:postgresql://host.docker.internal:5432/task_pro_db" \
+  -e SPRING_DATASOURCE_USERNAME="task_pro_user" \
+  -e SPRING_DATASOURCE_PASSWORD="task_pro_pass" \
+  -e SPRING_JPA_HBM2DDL="validate" \
+  -e APP_CORS_ALLOWED_ORIGINS="https://app.example.com" \
+  -e SPRING_PROFILES_ACTIVE="prod" \
+  -p 8080:8080 \
+  task-pro-api:latest
+
+# Or use --env-file
+docker run -d --env-file .env.production -p 8080:8080 task-pro-api:latest
+```
+
+### Docker Compose
+
+```yaml
+# docker-compose.yml
+services:
+  app:
+    image: task-pro-api:latest
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/task_pro_db
+      SPRING_DATASOURCE_USERNAME: task_pro_user
+      SPRING_DATASOURCE_PASSWORD: task_pro_pass
+      SPRING_JPA_HBM2DDL: validate
+      APP_CORS_ALLOWED_ORIGINS: https://app.example.com
+      SPRING_PROFILES_ACTIVE: prod
+    # Or use env_file:
+    # env_file:
+    #   - .env.production
+```
+
+### Kubernetes
+
+```yaml
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: task-pro-api
+spec:
+  template:
+    spec:
+      containers:
+      - name: api
+        image: task-pro-api:latest
+        env:
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:postgresql://postgres-service:5432/task_pro_db"
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: password
+        - name: SPRING_JPA_HBM2DDL
+          value: "validate"
+        - name: APP_CORS_ALLOWED_ORIGINS
+          value: "https://app.example.com"
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+```
+
+### Easypanel (VPS Deployment)
+
+From `/workspace/source/README_DEPLOY.md`, when deploying to Easypanel:
+
+1. **Create a new application** in Easypanel
+2. **Select "Docker image"** and specify your image: `your-repo/task-pro-api:latest`
+3. **Set environment variables** in the Easypanel UI:
+
+```
+SPRING_PROFILES_ACTIVE=prod
+SPRING_DATASOURCE_URL=jdbc:postgresql://<DB_HOST>:5432/<DB_NAME>
+SPRING_DATASOURCE_USERNAME=<DB_USER>
+SPRING_DATASOURCE_PASSWORD=<DB_PASS>
+SPRING_JPA_HBM2DDL=validate
+APP_CORS_ALLOWED_ORIGINS=https://mi-frontend.com
+```
+
+4. **Configure healthcheck** to use `/actuator/health`
+
+## Verifying Configuration
+
+### Check Application Properties
+
+Once the application is running, check the Spring Boot Actuator health endpoint:
+
+```bash
+curl http://localhost:8080/actuator/health
+```
+
+**Expected response:**
+
+```json
+{
+  "status": "UP"
+}
+```
+
+### Test Database Connection
+
+```bash
+# Test registration (creates a user in DB)
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "testuser",
+    "email": "test@example.com",
+    "password": "testpass123"
+  }'
+```
+
+If you receive a 201 Created response, your database connection is working.
+
+### Test CORS
+
+```bash
+# Send a preflight OPTIONS request
+curl -X OPTIONS http://localhost:8080/api/tasks \
+  -H "Origin: https://app.example.com" \
+  -H "Access-Control-Request-Method: GET" \
+  -v
+```
+
+Check response headers for:
+```
+Access-Control-Allow-Origin: https://app.example.com
+Access-Control-Allow-Methods: GET, POST, PUT, DELETE
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Connection refused to database">
+    **Problem:** Application cannot connect to PostgreSQL.
+    
+    **Check:**
+    1. Is PostgreSQL running? `docker ps` or `systemctl status postgresql`
+    2. Is the host correct? Use `localhost` for local, `db` for Docker Compose, or IP/hostname for remote
+    3. Is the port correct? Default is 5432
+    4. Can you connect manually? `psql -h <host> -U <username> -d <database>`
+    
+    **Solution:**
+    - Verify `SPRING_DATASOURCE_URL` is correct
+    - Check firewall rules allow connections on port 5432
+    - Ensure PostgreSQL is configured to accept connections from your host
+  </Accordion>
+  
+  <Accordion title="Authentication failed for user">
+    **Problem:** Database rejects username/password.
+    
+    **Check:**
+    1. Username and password are correct
+    2. User has permissions on the database
+    
+    **Solution:**
+    ```sql
+    -- Create user if needed
+    CREATE USER task_pro_user WITH PASSWORD 'task_pro_pass';
+    
+    -- Grant permissions
+    GRANT ALL PRIVILEGES ON DATABASE task_pro_db TO task_pro_user;
+    ```
+  </Accordion>
+  
+  <Accordion title="CORS errors in browser">
+    **Problem:** Browser blocks requests due to CORS policy.
+    
+    **Check:**
+    1. Is your origin listed in `APP_CORS_ALLOWED_ORIGINS`?
+    2. Are you using `*` with credentials?
+    
+    **Solution:**
+    - Add your frontend origin explicitly: `https://app.example.com`
+    - For multiple origins, use comma-separated list
+    - Never use `*` if you need cookies/credentials
+  </Accordion>
+  
+  <Accordion title="OutOfMemoryError: Java heap space">
+    **Problem:** Application runs out of memory.
+    
+    **Solution:**
+    Increase JVM heap size:
+    ```bash
+    JAVA_TOOL_OPTIONS="-Xms1g -Xmx2g"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Database Setup" icon="database" href="/deployment/database-setup">
+    Learn how to set up and configure PostgreSQL
+  </Card>
+  <Card title="Docker Deployment" icon="docker" href="/deployment/docker">
+    Deploy Task Pro API with Docker
+  </Card>
+  <Card title="Production Guide" icon="shield" href="/deployment/production">
+    Best practices for production deployments
+  </Card>
+</CardGroup>

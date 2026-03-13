@@ -1,0 +1,83 @@
+---
+title: "Login"
+description: "Authenticate user and obtain access token"
+---
+
+## POST /api/auth/login
+
+Authenticates a user with email and password, returning a JWT access token.
+
+### Authentication
+
+No authentication required.
+
+### Request Body
+
+<ParamField body="email" type="string" required>
+  User's email address
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  User's password
+</ParamField>
+
+### Response
+
+<ResponseField name="accessToken" type="string">
+  JWT access token for authenticated requests
+</ResponseField>
+
+<ResponseField name="tokenType" type="string">
+  Token type (always "bearer")
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X POST https://api.taskpro.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john.doe@example.com",
+    "password": "securePassword123"
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+  "tokenType": "bearer"
+}
+```
+
+### Status Codes
+
+<ResponseField name="200" type="OK">
+  Login successful, token returned
+</ResponseField>
+
+<ResponseField name="400" type="Bad Request">
+  Invalid request body or missing required fields
+</ResponseField>
+
+<ResponseField name="401" type="Unauthorized">
+  Invalid credentials
+</ResponseField>
+
+### Error Response Example
+
+```json
+{
+  "detail": "Invalid credentials"
+}
+```
+
+### Using the Access Token
+
+Include the access token in subsequent API requests:
+
+```bash
+curl -X GET https://api.taskpro.com/api/auth/me \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```

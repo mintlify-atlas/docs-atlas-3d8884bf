@@ -1,0 +1,110 @@
+---
+title: "Get Folder"
+api: "GET /api/folders/{folderId}"
+description: "Retrieve a specific folder by ID"
+---
+
+## Path Parameters
+
+<ParamField path="folderId" type="number" required>
+  The unique identifier of the folder
+</ParamField>
+
+## Response
+
+<ResponseField name="folderId" type="number">
+  Unique identifier for the folder
+</ResponseField>
+
+<ResponseField name="userId" type="number">
+  ID of the user who owns the folder
+</ResponseField>
+
+<ResponseField name="tags" type="array">
+  Array of tag objects associated with the folder
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  The name of the folder
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Description of the folder
+</ResponseField>
+
+<ResponseField name="color" type="string">
+  Color code for the folder
+</ResponseField>
+
+<ResponseField name="icon" type="string">
+  Icon identifier for the folder
+</ResponseField>
+
+<ResponseField name="parentFolderId" type="number">
+  ID of the parent folder
+</ResponseField>
+
+<ResponseField name="displayOrder" type="number">
+  Display order of the folder
+</ResponseField>
+
+<ResponseField name="isArchived" type="boolean">
+  Whether the folder is archived
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  ISO 8601 timestamp of folder creation
+</ResponseField>
+
+<ResponseField name="updatedAt" type="string">
+  ISO 8601 timestamp of last update
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.taskpro.com/api/folders/42 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "folderId": 42,
+  "userId": 123,
+  "tags": [
+    {
+      "tagId": 1,
+      "name": "urgent",
+      "color": "#FF0000"
+    },
+    {
+      "tagId": 2,
+      "name": "work",
+      "color": "#0000FF"
+    }
+  ],
+  "name": "Work Projects",
+  "description": "All work-related projects and tasks",
+  "color": "#4A90E2",
+  "icon": "briefcase",
+  "parentFolderId": null,
+  "displayOrder": 1,
+  "isArchived": false,
+  "createdAt": "2026-03-13T10:30:00",
+  "updatedAt": "2026-03-13T10:30:00"
+}
+```
+
+```json 404 Not Found
+{
+  "detail": "Folder not found"
+}
+```
+
+```json 401 Unauthorized
+{
+  "detail": "Authentication required"
+}
+```
+</ResponseExample>

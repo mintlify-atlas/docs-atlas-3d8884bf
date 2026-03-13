@@ -1,80 +1,447 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: 'Quickstart'
+description: 'Get started with Task Pro API in minutes - register a user, authenticate, and create your first task'
 ---
 
-## Get started in three steps
+## Overview
 
-Get your documentation site running locally and make your first customization.
+This quickstart guide will walk you through the essential steps to start using the Task Pro API. You'll learn how to:
 
-### Step 1: Set up your local environment
+1. Register a new user account
+2. Authenticate and obtain a JWT token
+3. Create your first task
+4. Retrieve and manage tasks
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+## Prerequisites
 
-### Step 2: Deploy your changes
+Before you begin, ensure you have:
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+- A running instance of Task Pro API (see [Docker deployment](/deployment/docker))
+- A tool for making HTTP requests (curl, Postman, or your preferred HTTP client)
+- Basic understanding of REST APIs and JSON
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  All examples in this guide use `http://localhost:8080` as the base URL. Replace this with your actual API URL.
 </Note>
+
+## Step 1: Register a New User
+
+Create a new user account by sending a POST request to the `/api/auth/register` endpoint.
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "johndoe",
+    "email": "john@example.com",
+    "password": "SecurePassword123!",
+    "fullName": "John Doe"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:8080/api/auth/register', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    username: 'johndoe',
+    email: 'john@example.com',
+    password: 'SecurePassword123!',
+    fullName: 'John Doe'
+  })
+});
+
+const user = await response.json();
+console.log('User created:', user);
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'http://localhost:8080/api/auth/register',
+    json={
+        'username': 'johndoe',
+        'email': 'john@example.com',
+        'password': 'SecurePassword123!',
+        'fullName': 'John Doe'
+    }
+)
+
+user = response.json()
+print('User created:', user)
+```
+
+</CodeGroup>
+
+**Response (201 Created):**
+
+```json
+{
+  "userId": 1,
+  "username": "johndoe",
+  "email": "john@example.com",
+  "fullName": "John Doe",
+  "avatarUrl": null,
+  "isActive": true,
+  "emailVerified": false,
+  "createdAt": "2026-03-13T10:30:00"
+}
+```
+
+## Step 2: Login and Get JWT Token
+
+Authenticate with your credentials to receive a JWT access token.
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john@example.com",
+    "password": "SecurePassword123!"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:8080/api/auth/login', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    email: 'john@example.com',
+    password: 'SecurePassword123!'
+  })
+});
+
+const { accessToken } = await response.json();
+console.log('Access token:', accessToken);
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'http://localhost:8080/api/auth/login',
+    json={
+        'email': 'john@example.com',
+        'password': 'SecurePassword123!'
+    }
+)
+
+token_data = response.json()
+access_token = token_data['accessToken']
+print('Access token:', access_token)
+```
+
+</CodeGroup>
+
+**Response (200 OK):**
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "tokenType": "Bearer"
+}
+```
+
+<Warning>
+  Store the access token securely. You'll need to include it in the `Authorization` header for all subsequent requests.
+</Warning>
+
+## Step 3: Create Your First Task
+
+Now that you have an access token, create your first task using the `/api/tasks` endpoint.
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST http://localhost:8080/api/tasks \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Complete project documentation",
+    "description": "Write comprehensive API documentation for all endpoints",
+    "priority": 1,
+    "status": "pending",
+    "dueDate": "2026-03-20"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:8080/api/tasks', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer YOUR_ACCESS_TOKEN',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    title: 'Complete project documentation',
+    description: 'Write comprehensive API documentation for all endpoints',
+    priority: 1,
+    status: 'pending',
+    dueDate: '2026-03-20'
+  })
+});
+
+const task = await response.json();
+console.log('Task created:', task);
+```
+
+```python Python
+import requests
+
+headers = {
+    'Authorization': 'Bearer YOUR_ACCESS_TOKEN',
+    'Content-Type': 'application/json'
+}
+
+response = requests.post(
+    'http://localhost:8080/api/tasks',
+    headers=headers,
+    json={
+        'title': 'Complete project documentation',
+        'description': 'Write comprehensive API documentation for all endpoints',
+        'priority': 1,
+        'status': 'pending',
+        'dueDate': '2026-03-20'
+    }
+)
+
+task = response.json()
+print('Task created:', task)
+```
+
+</CodeGroup>
+
+**Response (201 Created):**
+
+```json
+{
+  "taskId": 1,
+  "title": "Complete project documentation",
+  "description": "Write comprehensive API documentation for all endpoints",
+  "priority": 1,
+  "status": "pending",
+  "dueDate": "2026-03-20",
+  "dueTime": null,
+  "completedAt": null,
+  "displayOrder": 0,
+  "isArchived": false,
+  "tags": [],
+  "folderId": null,
+  "createdAt": "2026-03-13T10:45:00",
+  "updatedAt": "2026-03-13T10:45:00"
+}
+```
+
+## Step 4: Retrieve Your Tasks
+
+Fetch all your tasks to see the one you just created.
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET http://localhost:8080/api/tasks \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:8080/api/tasks', {
+  headers: {
+    'Authorization': 'Bearer YOUR_ACCESS_TOKEN'
+  }
+});
+
+const tasks = await response.json();
+console.log('Your tasks:', tasks);
+```
+
+```python Python
+import requests
+
+headers = {
+    'Authorization': 'Bearer YOUR_ACCESS_TOKEN'
+}
+
+response = requests.get(
+    'http://localhost:8080/api/tasks',
+    headers=headers
+)
+
+tasks = response.json()
+print('Your tasks:', tasks)
+```
+
+</CodeGroup>
+
+**Response (200 OK):**
+
+```json
+[
+  {
+    "taskId": 1,
+    "title": "Complete project documentation",
+    "description": "Write comprehensive API documentation for all endpoints",
+    "priority": 1,
+    "status": "pending",
+    "dueDate": "2026-03-20",
+    "dueTime": null,
+    "completedAt": null,
+    "displayOrder": 0,
+    "isArchived": false,
+    "tags": [],
+    "folderId": null,
+    "totalSubtasks": 0,
+    "completedSubtasks": 0,
+    "completionPercentage": 0,
+    "createdAt": "2026-03-13T10:45:00",
+    "updatedAt": "2026-03-13T10:45:00"
+  }
+]
+```
+
+## Step 5: Update Task Status
+
+Mark your task as in progress by updating its status.
+
+<CodeGroup>
+
+```bash cURL
+curl -X PUT http://localhost:8080/api/tasks/1 \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "in_progress"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:8080/api/tasks/1', {
+  method: 'PUT',
+  headers: {
+    'Authorization': 'Bearer YOUR_ACCESS_TOKEN',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    status: 'in_progress'
+  })
+});
+
+const updatedTask = await response.json();
+console.log('Task updated:', updatedTask);
+```
+
+```python Python
+import requests
+
+headers = {
+    'Authorization': 'Bearer YOUR_ACCESS_TOKEN',
+    'Content-Type': 'application/json'
+}
+
+response = requests.put(
+    'http://localhost:8080/api/tasks/1',
+    headers=headers,
+    json={'status': 'in_progress'}
+)
+
+updated_task = response.json()
+print('Task updated:', updated_task)
+```
+
+</CodeGroup>
+
+## Next Steps
+
+Congratulations! You've successfully:
+
+✅ Created a user account  
+✅ Authenticated and obtained a JWT token  
+✅ Created your first task  
+✅ Retrieved and updated tasks
+
+<CardGroup cols={2}>
+  <Card title="Authentication Guide" icon="shield-halved" href="/authentication">
+    Learn more about JWT authentication and security
+  </Card>
+  <Card title="Core Concepts" icon="lightbulb" href="/concepts/tasks">
+    Understand tasks, folders, tags, and subtasks
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/auth/register">
+    Explore all available endpoints in detail
+  </Card>
+  <Card title="Deployment" icon="server" href="/deployment/docker">
+    Deploy Task Pro API to production
+  </Card>
+</CardGroup>
+
+## Common Patterns
+
+### Filtering Tasks
+
+You can filter tasks by status or folder:
+
+```bash
+# Get only pending tasks
+curl -X GET "http://localhost:8080/api/tasks?status=pending" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+
+# Get tasks in a specific folder
+curl -X GET "http://localhost:8080/api/tasks?folderId=5" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+
+# Include archived tasks
+curl -X GET "http://localhost:8080/api/tasks?includeArchived=true" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+### Creating Tasks with Tags
+
+You can create tasks with tags for better organization:
+
+```json
+{
+  "title": "Implement new feature",
+  "description": "Add user profile management",
+  "priority": 2,
+  "status": "pending",
+  "tagIds": [1, 2, 3]
+}
+```
+
+### Using Folders
+
+Organize tasks in folders:
+
+```bash
+# Create a folder first
+curl -X POST http://localhost:8080/api/folders \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Work Projects",
+    "color": "#4F46E5",
+    "icon": "briefcase"
+  }'
+
+# Then create tasks in that folder
+curl -X POST http://localhost:8080/api/tasks \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Quarterly review",
+    "folderId": 1,
+    "status": "pending"
+  }'
+```
+
+<Tip>
+  Check out the [API Reference](/api-reference/auth/register) for complete documentation of all endpoints, parameters, and response formats.
+</Tip>

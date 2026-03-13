@@ -1,97 +1,127 @@
 ---
 title: "Introduction"
-description: "Welcome to the new home for your documentation"
+description: "A RESTful API for task management with folders, tags, subtasks, and user authentication built with Spring Boot and Kotlin"
 ---
 
-## Setting up
+## Welcome to Task Pro API
 
-Get your documentation site up and running in minutes.
+Task Pro API is a production-ready REST API that provides comprehensive task management capabilities. Built with Spring Boot and Kotlin, it offers a robust backend solution for organizing tasks, managing projects, and tracking progress.
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
+    title="Quickstart"
+    icon="rocket"
+    href="/quickstart"
   >
-    Edit your docs locally and preview them in real time.
+    Get up and running with Task Pro API in minutes
   </Card>
   <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
+    title="Authentication"
+    icon="shield-halved"
+    href="/authentication"
   >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+    Learn how to authenticate and secure your API requests
   </Card>
   <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
+    title="API Reference"
     icon="code"
-    href="/essentials/code"
+    href="/api-reference/auth/register"
   >
-    Add sample code to demonstrate how to use your product.
+    Explore all available endpoints and their parameters
   </Card>
   <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
+    title="Deployment Guide"
+    icon="server"
+    href="/deployment/docker"
   >
-    Display images and other media.
+    Deploy Task Pro API to production environments
+  </Card>
+</CardGroup>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card
+    title="JWT Authentication"
+    icon="key"
+  >
+    Secure user authentication and authorization using JSON Web Tokens
   </Card>
   <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
+    title="Hierarchical Organization"
+    icon="folder-tree"
   >
-    Write once and reuse across your docs.
+    Organize tasks with folders and break them down into subtasks
   </Card>
-</Columns>
+  <Card
+    title="Flexible Tagging"
+    icon="tags"
+  >
+    Tag tasks and folders with custom labels and colors
+  </Card>
+  <Card
+    title="Status Tracking"
+    icon="list-check"
+  >
+    Track task progress through pending, in progress, completed, and cancelled states
+  </Card>
+  <Card
+    title="Priority Management"
+    icon="arrow-up"
+  >
+    Set priority levels and due dates for effective task management
+  </Card>
+  <Card
+    title="Archive Support"
+    icon="box-archive"
+  >
+    Archive completed tasks and folders to keep your workspace clean
+  </Card>
+</CardGroup>
 
-## Need inspiration?
+## Technology Stack
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+Task Pro API is built with modern, production-proven technologies:
+
+- **Spring Boot 4.0** - Enterprise-grade Java framework
+- **Kotlin** - Modern, expressive JVM language
+- **PostgreSQL** - Reliable relational database
+- **JPA/Hibernate** - Object-relational mapping
+- **JWT (Auth0)** - Secure token-based authentication
+- **Docker** - Containerized deployment support
+
+## Quick Example
+
+Here's a simple example of creating a task:
+
+```bash
+curl -X POST https://your-api.com/api/tasks \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Complete project documentation",
+    "description": "Write comprehensive API documentation",
+    "priority": 1,
+    "status": "pending",
+    "dueDate": "2026-03-20"
+  }'
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Core Concepts"
+    icon="lightbulb"
+    href="/concepts/tasks"
+  >
+    Understand the core concepts of tasks, folders, tags, and subtasks
+  </Card>
+  <Card
+    title="Environment Setup"
+    icon="gear"
+    href="/deployment/environment-variables"
+  >
+    Configure your environment variables for development and production
+  </Card>
+</CardGroup>
